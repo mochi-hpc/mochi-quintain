@@ -2,7 +2,16 @@
     "margo" : {
     },
     "libraries" : {
+        "bake" : "libquintain-bedrock.so"
     },
     "providers" : [
+        {
+            "name" : "my_bake_provider",
+            "type" : "bake",
+            "provider_id" : 1,
+            "pool" : "__primary__",
+            "config" : {
+            }
+        }
     ]
 }
