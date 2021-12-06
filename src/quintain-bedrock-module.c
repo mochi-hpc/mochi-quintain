@@ -27,9 +27,12 @@ static int quintain_register_provider(bedrock_args_t             args,
     QTN_TRACE(mid, " -> name          = %s", name);
 
     bpargs.json_config = config;
+
+#if 0
     ret                = quintain_provider_register(mid, provider_id, &bpargs,
                                                     (quintain_provider_t*)provider);
     if (ret < 0) return (-1);
+#endif
 
     return BEDROCK_SUCCESS;
 }
@@ -38,15 +41,21 @@ static int quintain_deregister_provider(bedrock_module_provider_t provider)
 {
     int ret;
 
+#if 0
     ret = quintain_provider_deregister(provider);
     if (ret < 0) return (-1);
+#endif
 
     return BEDROCK_SUCCESS;
 }
 
 static char* quintain_get_provider_config(bedrock_module_provider_t provider)
 {
+#if 0
     return (quintain_provider_get_config(provider));
+#else
+    return strdup("{}");
+#endif
 }
 
 static int quintain_init_client(bedrock_args_t           args,
