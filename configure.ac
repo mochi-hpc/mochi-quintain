@@ -95,5 +95,5 @@ AC_LINK_IFELSE(
 
 AM_CONDITIONAL([HAVE_MPI], [test "x${have_mpi}" = x1])
 
-AC_CONFIG_FILES([Makefile maint/mochi-quintain.pc])
+AC_CONFIG_FILES([Makefile maint/mochi-quintain-server.pc])
 AC_OUTPUT
