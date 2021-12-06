@@ -84,5 +84,16 @@ PKG_CHECK_MODULES([BEDROCK], [bedrock-server],[],
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
 
+# optional mpi; this will cause the benchmark program to be built as well,
+# in addition to the provider piece
+AC_MSG_CHECKING([If MPI programs can be compiled])
+AC_LINK_IFELSE(
+    [AC_LANG_PROGRAM([[#include<mpi.h>]], [[MPI_Init(0,0);]])],
+    [have_mpi=1
+     AC_MSG_RESULT([yes])],
+    [AC_MSG_WARN([Unable to compile MPI programs, try CC=mpicc])])
+
+AM_CONDITIONAL([HAVE_MPI], [test "x${have_mpi}" = x1])
+
 AC_CONFIG_FILES([Makefile maint/mochi-treadmill.pc])
 AC_OUTPUT
