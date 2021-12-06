@@ -3,14 +3,14 @@
 *.i
 *.s
 *.swp
-mochi-treadmill-config.h
+mochi-quintain-config.h
 autom4te.cache/
 config.log
 config.status
 Makefile
 Makefile.in
-mochi-treadmill-config.h.in
-mochi-treadmill-config.h.in~
+mochi-quintain-config.h.in
+mochi-quintain-config.h.in~
 configure
 cscope.files
 aclocal.m4

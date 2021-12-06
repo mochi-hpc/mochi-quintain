@@ -90,8 +90,8 @@ EOF
     exit 1
 fi
 
-MIRROR=/tmp/${USER}/mochi-treadmill-tmp-mirror
-TMP_FILENAME=/tmp/${USER}/mochi-treadmill-tmp-file
+MIRROR=/tmp/${USER}/mochi-quintain-tmp-mirror
+TMP_FILENAME=/tmp/${USER}/mochi-quintain-tmp-file
 
 # Checkout a copy of the current index into MIRROR
 git checkout-index --prefix=$MIRROR/ -af
@@ -113,7 +113,7 @@ ret=0
 for file in $filestring
 do
     if [[ ($file == *.c || $file == *.h || $file == *.c.in || $file == *.h.in) &&
-          !($file == *mochi-treadmill-config.h.in || $file == *examples/* || $file == scripts/* || $file == tests/* || $file == doc/*) ]]; then
+          !($file == *mochi-quintain-config.h.in || $file == *examples/* || $file == scripts/* || $file == tests/* || $file == doc/*) ]]; then
         cp ${file} ${TMP_FILENAME}
         clang-format ${file} > ${TMP_FILENAME}
         git --no-pager diff ${file} ${TMP_FILENAME}

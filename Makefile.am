@@ -34,6 +34,6 @@ LDADD =
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = \
- maint/mochi-treadmill.pc
+ maint/mochi-quintain.pc
 
 include Make.rules
