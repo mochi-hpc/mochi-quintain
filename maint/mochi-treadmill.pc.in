@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: mochi-treadmill
+Description: synthetic RPC load testing
+Version: @PACKAGE_VERSION@
+URL: https://github.com/mochi-hpc/mochi-treadmill
+Requires: margo json-c bedrock
+Libs: -L${libdir}
+Cflags: -I${includedir}
