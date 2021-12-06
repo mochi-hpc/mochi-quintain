@@ -30,6 +30,9 @@ AM_CXXFLAGS = $(AM_CFLAGS)
 
 lib_LTLIBRARIES =
 
+lib_LTLIBRARIES += src/libquintain-bedrock.la
+src_libquintain_bedrock_la_SOURCES =
+
 LDADD =
 
 pkgconfigdir = $(libdir)/pkgconfig
@@ -38,4 +41,5 @@ pkgconfig_DATA = \
 
 include Make.rules
 
+include $(top_srcdir)/src/Makefile.subdir
 include $(top_srcdir)/tests/Makefile.subdir
