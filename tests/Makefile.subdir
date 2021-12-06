@@ -1,0 +1,11 @@
+TESTS_ENVIRONMENT += \
+ TIMEOUT="$(TIMEOUT)" \
+ MKTEMP="$(MKTEMP)"
+
+check_PROGRAMS +=
+
+TESTS += \
+ tests/basic.sh
+
+EXTRA_DIST += \
+ tests/basic.sh

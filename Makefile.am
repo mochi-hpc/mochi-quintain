@@ -37,3 +37,5 @@ pkgconfig_DATA = \
  maint/mochi-quintain-server.pc
 
 include Make.rules
+
+include $(top_srcdir)/tests/Makefile.subdir
