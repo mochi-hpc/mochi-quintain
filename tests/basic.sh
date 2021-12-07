@@ -13,5 +13,7 @@ BEDROCK_PID=$!
 
 sleep 2
 
+src/quintain-benchmark
+
 kill $BEDROCK_PID
 wait
