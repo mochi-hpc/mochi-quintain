@@ -81,8 +81,15 @@ CFLAGS="$JSONC_CFLAGS $CFLAGS"
 
 PKG_CHECK_MODULES([BEDROCK], [bedrock-server],[],
    [AC_MSG_ERROR([Could not find working bedrock installation!])])
+LIBS="$BEDROCK_LIBS $LIBS"
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
+
+PKG_CHECK_MODULES([SSG], [ssg],[],
+   [AC_MSG_ERROR([Could not find working SSG installation!])])
+LIBS="$SSG_LIBS $LIBS"
+CPPFLAGS="$SSG_CFLAGS $CPPFLAGS"
+CFLAGS="$SSG_CFLAGS $CFLAGS"
 
 # optional mpi; this will cause the benchmark program to be built as well,
 # in addition to the provider piece
