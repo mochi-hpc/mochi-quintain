@@ -1,1 +1,5 @@
 src_libquintain_bedrock_la_SOURCES += src/quintain-bedrock-module.c
+
+if HAVE_MPI
+bin_PROGRAMS += src/quintain-benchmark
+endif
