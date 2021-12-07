@@ -1,6 +1,11 @@
 {
     "margo" : {
     },
+    "ssg": {
+        "name" : "quintain",
+        "bootstrap" : "init",
+        "group_file" : "./quintain.ssg"
+    },
     "libraries" : {
         "quintain" : "libquintain-bedrock.so"
     },
