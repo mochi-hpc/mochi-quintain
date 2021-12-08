@@ -28,7 +28,8 @@ int main(int argc, char** argv)
 {
     int            nranks, nproviders;
     int            ret;
-    ssg_group_id_t group_id;
+    ssg_group_id_t gid;
+    char*          svr_addr_str;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -43,10 +44,19 @@ int main(int argc, char** argv)
     /* TODO: how to display ssg errors? */
     assert(ret == 0);
 
+    /* load ssg group information */
     nproviders = 1;
-    ret        = ssg_group_id_load(g_opts.group_file, &nproviders, &group_id);
+    ret        = ssg_group_id_load(g_opts.group_file, &nproviders, &gid);
     /* TODO: how to display ssg errors? */
     assert(ret == 0);
+
+    /* TODO: how to display ssg errors? */
+    ret = ssg_group_id_get_addr_str(gid, 0, &svr_addr_str);
+    assert(ret == 0);
+
+    printf("DBG: svr_addr_str: %s\n", svr_addr_str);
+
+    /* TODO: pick back up here.  Strip prefix, start margo */
 
     ssg_finalize();
 
