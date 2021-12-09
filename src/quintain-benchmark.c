@@ -58,6 +58,8 @@ int main(int argc, char** argv)
 
     /* TODO: pick back up here.  Strip prefix, start margo */
 
+    free(svr_addr_str);
+
     ssg_finalize();
 
     MPI_Finalize();
