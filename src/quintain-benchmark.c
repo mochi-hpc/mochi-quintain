@@ -40,17 +40,20 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
+    /* TODO: revisit these assertions and see if we can print a human
+     * readable error once an error printing macro is available in the SSG
+     * API
+     */
+
     ret = ssg_init();
-    /* TODO: how to display ssg errors? */
     assert(ret == 0);
 
     /* load ssg group information */
     nproviders = 1;
     ret        = ssg_group_id_load(g_opts.group_file, &nproviders, &gid);
-    /* TODO: how to display ssg errors? */
     assert(ret == 0);
 
-    /* TODO: how to display ssg errors? */
+    /* get addr for rank 0 in ssg group */
     ret = ssg_group_id_get_addr_str(gid, 0, &svr_addr_str);
     assert(ret == 0);
 
