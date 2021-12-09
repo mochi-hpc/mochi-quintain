@@ -24,12 +24,30 @@ static struct options g_opts;
 static int  parse_args(int argc, char** argv, struct options* opts);
 static void usage(void);
 
+/* TODO: where should this function reside?  This is copied from
+ * bv-client.cc but it is probably more generally useful for a client that
+ * bootstraps based on a generic ssg group id in which it doesn't know which
+ * protocol to start margo with otherwise
+ *
+ * Note that this version is destructive to the addr_str that is passed in
+ */
+static char* get_proto_from_addr(char* addr_str)
+{
+    char* p = addr_str;
+    char* q = strchr(addr_str, ':');
+    if (q == NULL) return NULL;
+    *q = '\0';
+    return p;
+}
+
 int main(int argc, char** argv)
 {
-    int            nranks, nproviders;
-    int            ret;
-    ssg_group_id_t gid;
-    char*          svr_addr_str;
+    int               nranks, nproviders;
+    int               ret;
+    ssg_group_id_t    gid;
+    char*             svr_addr_str = NULL;
+    char*             proto;
+    margo_instance_id mid;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -40,31 +58,54 @@ int main(int argc, char** argv)
         exit(EXIT_FAILURE);
     }
 
-    /* TODO: revisit these assertions and see if we can print a human
-     * readable error once an error printing macro is available in the SSG
-     * API
+    /* TODO: update to show human readable errors on ssg failures once SSG
+     * api has error printing macro
      */
 
     ret = ssg_init();
-    assert(ret == 0);
+    if (ret != SSG_SUCCESS) {
+        fprintf(stderr, "Error: failed to initialize ssg.\n");
+        goto err_mpi_cleanup;
+    }
 
     /* load ssg group information */
     nproviders = 1;
     ret        = ssg_group_id_load(g_opts.group_file, &nproviders, &gid);
-    assert(ret == 0);
+    if (ret != SSG_SUCCESS) {
+        fprintf(stderr, "Error: failed to load ssg group from file %s.\n",
+                g_opts.group_file);
+        goto err_ssg_cleanup;
+    }
 
     /* get addr for rank 0 in ssg group */
     ret = ssg_group_id_get_addr_str(gid, 0, &svr_addr_str);
-    assert(ret == 0);
+    if (ret != SSG_SUCCESS) {
+        fprintf(stderr,
+                "Error: failed to retrieve first server addr from ssg.\n");
+        goto err_ssg_cleanup;
+    }
 
     printf("DBG: svr_addr_str: %s\n", svr_addr_str);
 
-    /* TODO: pick back up here.  Strip prefix, start margo */
+    /* find protocol */
+    proto = get_proto_from_addr(svr_addr_str);
+    /* this should never fail if addr is properly formatted */
+    assert(proto);
 
-    free(svr_addr_str);
+    mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
+    if (!mid) {
+        fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
+                proto);
+        goto err_ssg_cleanup;
+    }
 
+    /* TODO: quintain client stuff */
+
+    margo_finalize(mid);
+err_ssg_cleanup:
+    if (svr_addr_str) free(svr_addr_str);
     ssg_finalize();
-
+err_mpi_cleanup:
     MPI_Finalize();
 
     return 0;
