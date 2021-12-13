@@ -1,6 +1,9 @@
 src_libquintain_bedrock_la_SOURCES += src/quintain-bedrock-module.c
+src_libquintain_bedrock_la_LIBADD = src/libquintain-server.la src/libquintain-client.la
 
 src_libquintain_client_la_SOURCES += src/quintain-client.c
+
+src_libquintain_server_la_SOURCES += src/quintain-server.c
 
 if HAVE_MPI
 bin_PROGRAMS += src/quintain-benchmark

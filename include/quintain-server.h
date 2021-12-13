@@ -14,8 +14,8 @@
 extern "C" {
 #endif
 
-#define QUINTAIN_PROVIDER_ID_DEFAULT 0
-#define QUINTAIN_PROVIDER_IGNORE     NULL
+#define QTN_PROVIDER_ID_DEFAULT 0
+#define QTN_PROVIDER_IGNORE     NULL
 
 typedef struct quintain_provider* quintain_provider_t;
 
@@ -34,21 +34,19 @@ struct quintain_provider_init_info {
  * ----------------------------------------------
 {
 }
- * ----------------------------------------------
- */
+*/
 
-#define QUINTAIN_PROVIDER_INIT_INFO_INITIALIZER \
-    {                                           \
-        NULL, ABT_POOL_NULL                     \
+#define QTN_PROVIDER_INIT_INFO_INITIALIZER \
+    {                                      \
+        NULL, ABT_POOL_NULL                \
     }
 
 /**
- * Initializes a QUINTAIN provider.
+ * Initializes a QTN provider.
  *
+ * @param[in] mid Margo instance identifier
  * @param[in] provider_id provider id
- * @param[in] args initialization parameters
  * @param[out] provider resulting provider
- *
  * @returns 0 on success, -1 otherwise
  */
 int quintain_provider_register(margo_instance_id mid,
@@ -64,26 +62,6 @@ int quintain_provider_register(margo_instance_id mid,
  * @return 0 on success, -1 otherwise.
  */
 int quintain_provider_deregister(quintain_provider_t provider);
-
-/**
- * Sets configuration parameters
- *
- * @param [in] provider Bake provider
- * @param [in] key parameter name
- * @param [in] value parameter value
- *
- * @returns 0 on success, -1 on failure
- */
-int quintain_provider_set_param(quintain_provider_t provider,
-                                const char*         key,
-                                const char*         value);
-/**
- * Retrieves complete configuration of quintain provider, encoded as json
- *
- * @param [in] provider quintain provider
- * @returns null terminated string that must be free'd by caller
- */
-char* quintain_provider_get_config(quintain_provider_t provider);
 
 #ifdef __cplusplus
 }

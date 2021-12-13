@@ -29,11 +29,9 @@ static int quintain_register_provider(bedrock_args_t             args,
 
     bpargs.json_config = config;
 
-#if 0
-    ret                = quintain_provider_register(mid, provider_id, &bpargs,
-                                                    (quintain_provider_t*)provider);
+    ret = quintain_provider_register(mid, provider_id, &bpargs,
+                                     (quintain_provider_t*)provider);
     if (ret < 0) return (-1);
-#endif
 
     return BEDROCK_SUCCESS;
 }
@@ -42,10 +40,8 @@ static int quintain_deregister_provider(bedrock_module_provider_t provider)
 {
     int ret;
 
-#if 0
     ret = quintain_provider_deregister(provider);
     if (ret < 0) return (-1);
-#endif
 
     return BEDROCK_SUCCESS;
 }
