@@ -7,6 +7,7 @@
 #include <string.h>
 #include <bedrock/module.h>
 #include <quintain-server.h>
+#include <quintain-client.h>
 
 static int quintain_register_provider(bedrock_args_t             args,
                                       bedrock_module_provider_t* provider)
@@ -66,7 +67,8 @@ static int quintain_init_client(bedrock_args_t           args,
     margo_instance_id mid = bedrock_args_get_margo_instance(args);
     QTN_TRACE(mid, "quintain_init_client()");
 
-    /* TODO: fill this in */
+    ret = quintain_client_init(mid, (quintain_client_t*)client);
+    if (ret < 0) return (-1);
 
     return BEDROCK_SUCCESS;
 }
@@ -75,7 +77,8 @@ static int quintain_finalize_client(bedrock_module_client_t client)
 {
     int ret;
 
-    /* TODO: fill this in */
+    ret = quintain_client_finalize(client);
+    if (ret < 0) return (-1);
 
     return BEDROCK_SUCCESS;
 }
@@ -92,7 +95,9 @@ static int quintain_create_provider_handle(bedrock_module_client_t client,
 {
     int ret;
 
-    /* TODO: fill this in */
+    ret = quintain_provider_handle_create(client, address, provider_id,
+                                          (quintain_provider_handle_t*)ph);
+    if (ret < 0) return (-1);
 
     return BEDROCK_SUCCESS;
 }
@@ -101,7 +106,8 @@ static int quintain_destroy_provider_handle(bedrock_module_provider_handle_t ph)
 {
     int ret;
 
-    /* TODO: fill this in */
+    ret = quintain_provider_handle_release(ph);
+    if (ret < 0) return (-1);
 
     return BEDROCK_SUCCESS;
 }
