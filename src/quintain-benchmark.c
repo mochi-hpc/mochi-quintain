@@ -15,6 +15,7 @@
 #include <mpi.h>
 
 #include <ssg.h>
+#include <quintain-client.h>
 
 struct options {
     char group_file[256];
@@ -29,25 +30,32 @@ static void usage(void);
  * bootstraps based on a generic ssg group id in which it doesn't know which
  * protocol to start margo with otherwise
  *
- * Note that this version is destructive to the addr_str that is passed in
+ * Note that this version returns a pointer that must be free'd by caller
  */
 static char* get_proto_from_addr(char* addr_str)
 {
-    char* p = addr_str;
-    char* q = strchr(addr_str, ':');
-    if (q == NULL) return NULL;
+    char* p = strdup(addr_str);
+    if (p == NULL) return NULL;
+    char* q = strchr(p, ':');
+    if (q == NULL) {
+        free(p);
+        return NULL;
+    }
     *q = '\0';
     return p;
 }
 
 int main(int argc, char** argv)
 {
-    int               nranks, nproviders;
-    int               ret;
-    ssg_group_id_t    gid;
-    char*             svr_addr_str = NULL;
-    char*             proto;
-    margo_instance_id mid;
+    int                        nranks, nproviders;
+    int                        ret;
+    ssg_group_id_t             gid;
+    char*                      svr_addr_str = NULL;
+    char*                      proto;
+    margo_instance_id          mid      = MARGO_INSTANCE_NULL;
+    quintain_client_t          qcl      = QTN_CLIENT_NULL;
+    quintain_provider_handle_t qph      = QTN_PROVIDER_HANDLE_NULL;
+    hg_addr_t                  svr_addr = HG_ADDR_NULL;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -93,14 +101,42 @@ int main(int argc, char** argv)
     assert(proto);
 
     mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
+    free(proto);
     if (!mid) {
         fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
                 proto);
+        ret = -1;
         goto err_ssg_cleanup;
     }
 
-    /* TODO: quintain client stuff */
+    ret = margo_addr_lookup(mid, svr_addr_str, &svr_addr);
+    if (ret != HG_SUCCESS) {
+        fprintf(stderr, "Error: margo_addr_lookup()\n");
+        goto err_margo_cleanup;
+    }
 
+    /* TODO: error code printing fn for quintain */
+
+    ret = quintain_client_init(mid, &qcl);
+    if (ret != QTN_SUCCESS) {
+        QTN_ERROR(mid, "quintain_client_init() failure");
+        goto err_margo_cleanup;
+    }
+
+    /* TODO: allow other mplex_id values besides 0 */
+    ret = quintain_provider_handle_create(qcl, svr_addr, 0, &qph);
+    if (ret != QTN_SUCCESS) {
+        QTN_ERROR(mid, "quintain_provider_handle_create() failure");
+        goto err_qtn_cleanup;
+    }
+
+    /* TODO: benchmark stuff */
+
+err_qtn_cleanup:
+    if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
+    if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
+err_margo_cleanup:
+    if (svr_addr != HG_ADDR_NULL) margo_addr_free(mid, svr_addr);
     margo_finalize(mid);
 err_ssg_cleanup:
     if (svr_addr_str) free(svr_addr_str);
@@ -108,7 +144,7 @@ err_ssg_cleanup:
 err_mpi_cleanup:
     MPI_Finalize();
 
-    return 0;
+    return ret;
 }
 
 static int parse_args(int argc, char** argv, struct options* opts)

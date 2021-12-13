@@ -8,6 +8,7 @@
 #define __QUINTAIN_SERVER_H
 
 #include <margo.h>
+#include <quintain.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,19 +18,6 @@ extern "C" {
 #define QUINTAIN_PROVIDER_IGNORE     NULL
 
 typedef struct quintain_provider* quintain_provider_t;
-
-#define QTN_TRACE(_mid, _format, f...) \
-    margo_trace(_mid, "quintain: " _format, ##f)
-#define QTN_DEBUG(_mid, _format, f...) \
-    margo_debug(_mid, "quintain: " _format, ##f)
-#define QTN_INFO(_mid, _format, f...) \
-    margo_info(_mid, "quintain: " _format, ##f)
-#define QTN_WARNING(_mid, _format, f...) \
-    margo_warning(_mid, "quintain: " _format, ##f)
-#define QTN_ERROR(_mid, _format, f...) \
-    margo_error(_mid, "quintain: " _format, ##f)
-#define QTN_CRITICAL(_mid, _format, f...) \
-    margo_critical(_mid, "quintain: " _format, ##f)
 
 /**
  * The quintain_provider_init_info structure can be passed in to the
