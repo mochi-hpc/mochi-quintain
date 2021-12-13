@@ -12,6 +12,8 @@
 #include <margo.h>
 #include <quintain-server.h>
 
+#include "quintain-rpc.h"
+
 struct quintain_provider {
     margo_instance_id mid;
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider

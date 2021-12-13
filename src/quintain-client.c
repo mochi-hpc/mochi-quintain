@@ -9,6 +9,8 @@
 #include <margo.h>
 #include <quintain-client.h>
 
+#include "quintain-rpc.h"
+
 struct quintain_client {
     margo_instance_id mid;
 
