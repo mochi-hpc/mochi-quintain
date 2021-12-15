@@ -14,7 +14,7 @@
 struct quintain_client {
     margo_instance_id mid;
 
-    /* hg_id_t foo */
+    hg_id_t qtn_get_server_config_rpc_id;
 
     uint64_t num_provider_handles;
 };
@@ -28,13 +28,27 @@ struct quintain_provider_handle {
 
 int quintain_client_init(margo_instance_id mid, quintain_client_t* client)
 {
+    hg_bool_t already_registered_flag;
+    hg_id_t   id;
+
     quintain_client_t c = (quintain_client_t)calloc(1, sizeof(*c));
     if (!c) return QTN_ERR_ALLOCATION;
 
     c->num_provider_handles = 0;
     c->mid                  = mid;
 
-    /* TODO: register RPCs */
+    margo_registered_name(mid, "qtn_get_server_config_rpc", &id,
+                          &already_registered_flag);
+
+    if (already_registered_flag == HG_TRUE) { /* RPCs already registered */
+        margo_registered_name(mid, "qtn_get_server_config_rpc",
+                              &c->qtn_get_server_config_rpc_id,
+                              &already_registered_flag);
+    } else { /* RPCs not already registered */
+        c->qtn_get_server_config_rpc_id
+            = MARGO_REGISTER(mid, "qtn_get_server_config_rpc", void,
+                             qtn_get_server_config_out_t, NULL);
+    }
 
     *client = c;
     return QTN_SUCCESS;
