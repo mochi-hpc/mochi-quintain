@@ -105,3 +105,43 @@ int quintain_provider_handle_release(quintain_provider_handle_t handle)
     }
     return QTN_SUCCESS;
 }
+
+int quintain_get_server_config(quintain_provider_handle_t provider,
+                               char**                     config)
+{
+    hg_handle_t                 handle = HG_HANDLE_NULL;
+    qtn_get_server_config_out_t out;
+    int                         ret = 0;
+    hg_return_t                 hret;
+
+    hret
+        = margo_create(provider->client->mid, provider->addr,
+                       provider->client->qtn_get_server_config_rpc_id, &handle);
+
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    hret = margo_provider_forward(provider->provider_id, handle, NULL);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    hret = margo_get_output(handle, &out);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    ret     = out.ret;
+    *config = NULL;
+
+finish:
+
+    margo_free_output(handle, &out);
+    margo_destroy(handle);
+
+    return (ret);
+}
