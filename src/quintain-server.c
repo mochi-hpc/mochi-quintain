@@ -14,6 +14,8 @@
 
 #include "quintain-rpc.h"
 
+DECLARE_MARGO_RPC_HANDLER(quintain_get_server_config_ult)
+
 struct quintain_provider {
     margo_instance_id mid;
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider
@@ -63,6 +65,14 @@ int quintain_provider_register(margo_instance_id mid,
         ret = QTN_ERR_ALLOCATION;
         goto error;
     }
+    tmp_provider->mid = mid;
+
+    if (args.rpc_pool != NULL)
+        tmp_provider->handler_pool = args.rpc_pool;
+    else
+        margo_get_handler_pool(mid, &(tmp_provider->handler_pool));
+
+    /* register RPCs */
 
     /* install the quintain server finalize callback */
     margo_provider_push_finalize_callback(
