@@ -140,8 +140,8 @@ int quintain_get_server_config(quintain_provider_handle_t provider,
 
 finish:
 
-    margo_free_output(handle, &out);
-    margo_destroy(handle);
+    if (hret == HG_SUCCESS) margo_free_output(handle, &out);
+    if (handle != HG_HANDLE_NULL) margo_destroy(handle);
 
     return (ret);
 }

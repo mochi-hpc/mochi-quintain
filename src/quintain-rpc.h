@@ -12,6 +12,6 @@
 #include <quintain.h>
 
 MERCURY_GEN_PROC(qtn_get_server_config_out_t,
-                 ((int32_t)(ret))((hg_string_t)(remote_addr_str)))
+                 ((int32_t)(ret))((hg_string_t)(cfg_str)))
 
 #endif /* __QUINTAIN_RPC */

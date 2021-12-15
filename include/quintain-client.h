@@ -31,6 +31,9 @@ int quintain_provider_handle_create(quintain_client_t           client,
 
 int quintain_provider_handle_release(quintain_provider_handle_t handle);
 
+int quintain_get_server_config(quintain_provider_handle_t provider,
+                               char**                     config);
+
 #ifdef __cplusplus
 }
 #endif

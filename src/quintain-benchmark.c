@@ -52,6 +52,7 @@ int main(int argc, char** argv)
     ssg_group_id_t             gid;
     char*                      svr_addr_str = NULL;
     char*                      proto;
+    char*                      svr_cfg_str;
     margo_instance_id          mid      = MARGO_INSTANCE_NULL;
     quintain_client_t          qcl      = QTN_CLIENT_NULL;
     quintain_provider_handle_t qph      = QTN_PROVIDER_HANDLE_NULL;
@@ -116,6 +117,8 @@ int main(int argc, char** argv)
     }
 
     /* TODO: error code printing fn for quintain */
+    /* TODO: we probably shouldn't use QTN_ERROR in end-user program like
+     * this, need to fix */
 
     ret = quintain_client_init(mid, &qcl);
     if (ret != QTN_SUCCESS) {
@@ -130,7 +133,17 @@ int main(int argc, char** argv)
         goto err_qtn_cleanup;
     }
 
-    /* TODO: benchmark stuff */
+    /* retrieve configuration from provider so that we can report it with
+     * results
+     */
+    ret = quintain_get_server_config(qph, &svr_cfg_str);
+    if (ret != QTN_SUCCESS) {
+        QTN_ERROR(mid, "quintain_get_server_config() failure");
+        goto err_qtn_cleanup;
+    }
+
+    printf("DBG: svr_cfg_str: %s\n", svr_cfg_str);
+    if (svr_cfg_str) free(svr_cfg_str);
 
 err_qtn_cleanup:
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
