@@ -14,11 +14,13 @@
 
 #include "quintain-rpc.h"
 
-DECLARE_MARGO_RPC_HANDLER(quintain_get_server_config_ult)
+DECLARE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
 
 struct quintain_provider {
     margo_instance_id mid;
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider
+
+    hg_id_t qtn_get_server_config_rpc_id;
 
     struct json_object* json_cfg;
 };
@@ -41,6 +43,7 @@ int quintain_provider_register(margo_instance_id mid,
     struct quintain_provider*          tmp_provider = NULL;
     int                                ret;
     struct json_object*                config = NULL;
+    hg_id_t                            rpc_id;
 
     /* check if a provider with the same provider id already exists */
     {
@@ -73,6 +76,11 @@ int quintain_provider_register(margo_instance_id mid,
         margo_get_handler_pool(mid, &(tmp_provider->handler_pool));
 
     /* register RPCs */
+    rpc_id = MARGO_REGISTER_PROVIDER(
+        mid, "qtn_get_server_config_rpc", void, qtn_get_server_config_out_t,
+        qtn_get_server_config_ult, provider_id, tmp_provider->handler_pool);
+    margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
+    tmp_provider->qtn_get_server_config_rpc_id = rpc_id;
 
     /* install the quintain server finalize callback */
     margo_provider_push_finalize_callback(
@@ -95,3 +103,29 @@ int quintain_provider_deregister(quintain_provider_t provider)
     quintain_server_finalize_cb(provider);
     return QTN_SUCCESS;
 }
+
+static void qtn_get_server_config_ult(hg_handle_t handle)
+{
+    margo_instance_id           mid = MARGO_INSTANCE_NULL;
+    qtn_get_server_config_out_t out;
+    const struct hg_info*       info     = NULL;
+    quintain_provider_t         provider = NULL;
+
+    mid = margo_hg_handle_get_instance(handle);
+    assert(mid);
+    info     = margo_get_info(handle);
+    provider = margo_registered_data(mid, info->id);
+    if (!provider) {
+        out.ret = QTN_ERR_UNKNOWN_PROVIDER;
+        goto finish;
+    }
+
+    /* note that this rpc doesn't have any input */
+
+    memset(&out, 0, sizeof(out));
+
+finish:
+    margo_respond(handle, &out);
+    margo_destroy(handle);
+}
+DEFINE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)

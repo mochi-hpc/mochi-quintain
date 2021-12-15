@@ -26,10 +26,11 @@ extern "C" {
 #define QTN_CRITICAL(_mid, _format, f...) \
     margo_critical(_mid, "quintain: " _format, ##f)
 
-#define QTN_SUCCESS         0    /* success */
-#define QTN_ERR_ALLOCATION  (-1) /* error allocating something */
-#define QTN_ERR_INVALID_ARG (-2) /* invalid argument */
-#define QTN_ERR_MERCURY     (-3) /* Mercury error */
+#define QTN_SUCCESS              0    /* success */
+#define QTN_ERR_ALLOCATION       (-1) /* error allocating something */
+#define QTN_ERR_INVALID_ARG      (-2) /* invalid argument */
+#define QTN_ERR_MERCURY          (-3) /* Mercury error */
+#define QTN_ERR_UNKNOWN_PROVIDER (-3) /* can't find provider */
 
 #ifdef __cplusplus
 }
