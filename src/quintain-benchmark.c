@@ -117,19 +117,16 @@ int main(int argc, char** argv)
     }
 
     /* TODO: error code printing fn for quintain */
-    /* TODO: we probably shouldn't use QTN_ERROR in end-user program like
-     * this, need to fix */
-
     ret = quintain_client_init(mid, &qcl);
     if (ret != QTN_SUCCESS) {
-        QTN_ERROR(mid, "quintain_client_init() failure");
+        fprintf(stderr, "Error: quintain_client_init() failure.\n");
         goto err_margo_cleanup;
     }
 
     /* TODO: allow other provider_id values besides 1 */
     ret = quintain_provider_handle_create(qcl, svr_addr, 1, &qph);
     if (ret != QTN_SUCCESS) {
-        QTN_ERROR(mid, "quintain_provider_handle_create() failure");
+        fprintf(stderr, "Error: quintain_provider_handle_create() failure.\n");
         goto err_qtn_cleanup;
     }
 
@@ -138,7 +135,7 @@ int main(int argc, char** argv)
      */
     ret = quintain_get_server_config(qph, &svr_cfg_str);
     if (ret != QTN_SUCCESS) {
-        QTN_ERROR(mid, "quintain_get_server_config() failure");
+        fprintf(stderr, "Erroro: quintain_get_server_config() failure.\n");
         goto err_qtn_cleanup;
     }
 
