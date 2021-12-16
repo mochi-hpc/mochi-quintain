@@ -122,13 +122,11 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
 
     /* note that this rpc doesn't have any input */
     memset(&out, 0, sizeof(out));
-
-    /* TODO: fill this in; this is a placeholder */
-    out.cfg_str = strdup("Hello world.");
+    out.cfg_str = margo_get_config(mid);
 
 finish:
     margo_respond(handle, &out);
-    free(out.cfg_str);
+    if (out.cfg_str) free(out.cfg_str);
     margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
