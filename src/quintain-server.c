@@ -42,7 +42,6 @@ int quintain_provider_register(margo_instance_id mid,
     struct quintain_provider_init_info args         = *uargs;
     struct quintain_provider*          tmp_provider = NULL;
     int                                ret;
-    struct json_object*                config = NULL;
     hg_id_t                            rpc_id;
 
     /* check if a provider with the same provider id already exists */
@@ -123,6 +122,10 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
     /* note that this rpc doesn't have any input */
     memset(&out, 0, sizeof(out));
     out.cfg_str = margo_get_config(mid);
+
+    /* TODO: if this provider also has a json config, then retrieve it as
+     * well.  This doesn't yet exist.
+     */
 
 finish:
     margo_respond(handle, &out);
