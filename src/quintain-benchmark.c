@@ -47,12 +47,13 @@ static char* get_proto_from_addr(char* addr_str)
 
 int main(int argc, char** argv)
 {
-    int                        nranks, nproviders;
+    int                        nranks, nproviders, my_rank;
     int                        ret;
     ssg_group_id_t             gid;
     char*                      svr_addr_str = NULL;
     char*                      proto;
     char*                      svr_cfg_str;
+    char*                      cli_cfg_str;
     margo_instance_id          mid      = MARGO_INSTANCE_NULL;
     quintain_client_t          qcl      = QTN_CLIENT_NULL;
     quintain_provider_handle_t qph      = QTN_PROVIDER_HANDLE_NULL;
@@ -60,6 +61,7 @@ int main(int argc, char** argv)
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
     ret = parse_args(argc, argv, &g_opts);
     if (ret < 0) {
@@ -93,8 +95,6 @@ int main(int argc, char** argv)
                 "Error: failed to retrieve first server addr from ssg.\n");
         goto err_ssg_cleanup;
     }
-
-    printf("DBG: svr_addr_str: %s\n", svr_addr_str);
 
     /* find protocol */
     proto = get_proto_from_addr(svr_addr_str);
@@ -130,17 +130,24 @@ int main(int argc, char** argv)
         goto err_qtn_cleanup;
     }
 
-    /* retrieve configuration from provider so that we can report it with
-     * results
-     */
-    ret = quintain_get_server_config(qph, &svr_cfg_str);
-    if (ret != QTN_SUCCESS) {
-        fprintf(stderr, "Erroro: quintain_get_server_config() failure.\n");
-        goto err_qtn_cleanup;
-    }
+    /* have rank 0 in benchmark report configuration */
+    if (my_rank == 0) {
+        /* retrieve configuration from provider */
+        ret = quintain_get_server_config(qph, &svr_cfg_str);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Erroro: quintain_get_server_config() failure.\n");
+            goto err_qtn_cleanup;
+        }
 
-    printf("DBG: svr_cfg_str: %s\n", svr_cfg_str);
-    if (svr_cfg_str) free(svr_cfg_str);
+        printf("\"margo (server)\" : %s\n", svr_cfg_str);
+        if (svr_cfg_str) free(svr_cfg_str);
+
+        /* retrieve local configuration */
+        cli_cfg_str = margo_get_config(mid);
+
+        printf("\"margo (client)\" : %s\n", cli_cfg_str);
+        if (cli_cfg_str) free(cli_cfg_str);
+    }
 
 err_qtn_cleanup:
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
