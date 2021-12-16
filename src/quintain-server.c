@@ -49,8 +49,8 @@ int quintain_provider_register(margo_instance_id mid,
     {
         hg_id_t   id;
         hg_bool_t flag;
-        margo_provider_registered_name(mid, "quintain_probe_rpc", provider_id,
-                                       &id, &flag);
+        margo_provider_registered_name(mid, "quintain_get_server_config_rpc",
+                                       provider_id, &id, &flag);
         if (flag == HG_TRUE) {
             QTN_ERROR(mid,
                       "quintain_provider_register(): a quintain provider with "

@@ -126,8 +126,8 @@ int main(int argc, char** argv)
         goto err_margo_cleanup;
     }
 
-    /* TODO: allow other mplex_id values besides 0 */
-    ret = quintain_provider_handle_create(qcl, svr_addr, 0, &qph);
+    /* TODO: allow other provider_id values besides 1 */
+    ret = quintain_provider_handle_create(qcl, svr_addr, 1, &qph);
     if (ret != QTN_SUCCESS) {
         QTN_ERROR(mid, "quintain_provider_handle_create() failure");
         goto err_qtn_cleanup;
