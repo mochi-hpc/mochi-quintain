@@ -135,8 +135,11 @@ int quintain_get_server_config(quintain_provider_handle_t provider,
         goto finish;
     }
 
-    ret     = out.ret;
-    *config = NULL;
+    ret = out.ret;
+    if (out.cfg_str)
+        *config = strdup(out.cfg_str);
+    else
+        *config = NULL;
 
 finish:
 
