@@ -15,6 +15,7 @@ struct quintain_client {
     margo_instance_id mid;
 
     hg_id_t qtn_get_server_config_rpc_id;
+    hg_id_t qtn_work_rpc_id;
 
     uint64_t num_provider_handles;
 };
@@ -44,10 +45,14 @@ int quintain_client_init(margo_instance_id mid, quintain_client_t* client)
         margo_registered_name(mid, "qtn_get_server_config_rpc",
                               &c->qtn_get_server_config_rpc_id,
                               &already_registered_flag);
+        margo_registered_name(mid, "qtn_work_rpc", &c->qtn_work_rpc_id,
+                              &already_registered_flag);
     } else { /* RPCs not already registered */
         c->qtn_get_server_config_rpc_id
             = MARGO_REGISTER(mid, "qtn_get_server_config_rpc", void,
                              qtn_get_server_config_out_t, NULL);
+        c->qtn_work_rpc_id
+            = MARGO_REGISTER(mid, "qtn_work_rpc", void, qtn_work_out_t, NULL);
     }
 
     *client = c;
@@ -143,6 +148,49 @@ int quintain_get_server_config(quintain_provider_handle_t provider,
 
 finish:
 
+    if (hret == HG_SUCCESS) margo_free_output(handle, &out);
+    if (handle != HG_HANDLE_NULL) margo_destroy(handle);
+
+    return (ret);
+}
+
+int quintain_work(quintain_provider_handle_t provider,
+                  int                        req_buffer_size,
+                  int                        resp_buffer_size)
+{
+    hg_handle_t    handle = HG_HANDLE_NULL;
+    qtn_work_in_t  in;
+    qtn_work_out_t out;
+    int            ret = 0;
+    hg_return_t    hret;
+
+    hret = margo_create(provider->client->mid, provider->addr,
+                        provider->client->qtn_work_rpc_id, &handle);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    in.resp_buffer_size = resp_buffer_size;
+    in.req_buffer_size  = req_buffer_size;
+    if (req_buffer_size) in.req_buffer = calloc(1, req_buffer_size);
+    hret = margo_provider_forward(provider->provider_id, handle, &in);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    hret = margo_get_output(handle, &out);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    ret = out.ret;
+
+finish:
+
+    if (in.req_buffer) free(in.req_buffer);
     if (hret == HG_SUCCESS) margo_free_output(handle, &out);
     if (handle != HG_HANDLE_NULL) margo_destroy(handle);
 
