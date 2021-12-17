@@ -25,6 +25,7 @@ static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p);
 typedef struct {
     uint64_t resp_buffer_size; /* size of buffer in this response */
     char*    resp_buffer;      /* dummy buffer */
+    int32_t  ret;              /* return code */
 } qtn_work_out_t;
 static inline hg_return_t hg_proc_qtn_work_out_t(hg_proc_t proc, void* v_out_p);
 
@@ -59,6 +60,7 @@ static inline hg_return_t hg_proc_qtn_work_out_t(hg_proc_t proc, void* v_out_p)
         if (hg_proc_get_op(proc) == HG_DECODE) out->resp_buffer = buf;
         hg_proc_restore_ptr(proc, buf, out->resp_buffer_size);
     }
+    hg_proc_uint32_t(proc, &out->ret);
 
     return (HG_SUCCESS);
 }

@@ -15,12 +15,14 @@
 #include "quintain-rpc.h"
 
 DECLARE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
+DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
 
 struct quintain_provider {
     margo_instance_id mid;
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider
 
     hg_id_t qtn_get_server_config_rpc_id;
+    hg_id_t qtn_work_rpc_id;
 
     struct json_object* json_cfg;
 };
@@ -81,6 +83,12 @@ int quintain_provider_register(margo_instance_id mid,
     margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
     tmp_provider->qtn_get_server_config_rpc_id = rpc_id;
 
+    rpc_id = MARGO_REGISTER_PROVIDER(mid, "qtn_work_rpc", void, qtn_work_out_t,
+                                     qtn_work_ult, provider_id,
+                                     tmp_provider->handler_pool);
+    margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
+    tmp_provider->qtn_work_rpc_id = rpc_id;
+
     /* install the quintain server finalize callback */
     margo_provider_push_finalize_callback(
         mid, tmp_provider, &quintain_server_finalize_cb, tmp_provider);
@@ -120,6 +128,7 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
     }
 
     /* note that this rpc doesn't have any input */
+
     memset(&out, 0, sizeof(out));
     out.cfg_str = margo_get_config(mid);
 
@@ -133,3 +142,38 @@ finish:
     margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
+
+static void qtn_work_ult(hg_handle_t handle)
+{
+    margo_instance_id     mid = MARGO_INSTANCE_NULL;
+    qtn_work_in_t         in;
+    qtn_work_out_t        out;
+    const struct hg_info* info     = NULL;
+    quintain_provider_t   provider = NULL;
+    hg_return_t           hret;
+
+    mid = margo_hg_handle_get_instance(handle);
+    assert(mid);
+    info     = margo_get_info(handle);
+    provider = margo_registered_data(mid, info->id);
+    if (!provider) {
+        out.ret = QTN_ERR_UNKNOWN_PROVIDER;
+        goto finish;
+    }
+
+    hret = margo_get_input(handle, &in);
+    if (hret != HG_SUCCESS) {
+        out.ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    memset(&out, 0, sizeof(out));
+    out.resp_buffer_size = in.resp_buffer_size;
+    if (in.resp_buffer_size) out.resp_buffer = calloc(1, in.resp_buffer_size);
+
+finish:
+    margo_respond(handle, &out);
+    if (out.resp_buffer) free(out.resp_buffer);
+    margo_destroy(handle);
+}
+DEFINE_MARGO_RPC_HANDLER(qtn_work_ult)
