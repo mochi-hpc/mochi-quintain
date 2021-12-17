@@ -135,7 +135,7 @@ int main(int argc, char** argv)
         /* retrieve configuration from provider */
         ret = quintain_get_server_config(qph, &svr_cfg_str);
         if (ret != QTN_SUCCESS) {
-            fprintf(stderr, "Erroro: quintain_get_server_config() failure.\n");
+            fprintf(stderr, "Error: quintain_get_server_config() failure.\n");
             goto err_qtn_cleanup;
         }
 
