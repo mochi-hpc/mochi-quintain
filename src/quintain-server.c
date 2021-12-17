@@ -152,6 +152,8 @@ static void qtn_work_ult(hg_handle_t handle)
     quintain_provider_t   provider = NULL;
     hg_return_t           hret;
 
+    memset(&out, 0, sizeof(out));
+
     mid = margo_hg_handle_get_instance(handle);
     assert(mid);
     info     = margo_get_info(handle);
@@ -167,7 +169,7 @@ static void qtn_work_ult(hg_handle_t handle)
         goto finish;
     }
 
-    memset(&out, 0, sizeof(out));
+    QTN_INFO(mid, "qtn_work with resp_buffer_size: %lu\n", in.resp_buffer_size);
     out.resp_buffer_size = in.resp_buffer_size;
     if (in.resp_buffer_size) out.resp_buffer = calloc(1, in.resp_buffer_size);
 

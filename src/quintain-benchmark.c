@@ -149,6 +149,15 @@ int main(int argc, char** argv)
         if (cli_cfg_str) free(cli_cfg_str);
     }
 
+    /* TODO: fill in workload and measurement; for now just one RPC from
+     * each client
+     */
+    ret = quintain_work(qph, 128, 128);
+    if (ret != QTN_SUCCESS) {
+        fprintf(stderr, "Error: quintain_work() failure.\n");
+        goto err_qtn_cleanup;
+    }
+
 err_qtn_cleanup:
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
     if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
