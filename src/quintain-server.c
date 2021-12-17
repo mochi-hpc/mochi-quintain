@@ -83,8 +83,8 @@ int quintain_provider_register(margo_instance_id mid,
     margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
     tmp_provider->qtn_get_server_config_rpc_id = rpc_id;
 
-    rpc_id = MARGO_REGISTER_PROVIDER(mid, "qtn_work_rpc", void, qtn_work_out_t,
-                                     qtn_work_ult, provider_id,
+    rpc_id = MARGO_REGISTER_PROVIDER(mid, "qtn_work_rpc", qtn_work_in_t,
+                                     qtn_work_out_t, qtn_work_ult, provider_id,
                                      tmp_provider->handler_pool);
     margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
     tmp_provider->qtn_work_rpc_id = rpc_id;

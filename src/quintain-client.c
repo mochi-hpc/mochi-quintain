@@ -51,8 +51,8 @@ int quintain_client_init(margo_instance_id mid, quintain_client_t* client)
         c->qtn_get_server_config_rpc_id
             = MARGO_REGISTER(mid, "qtn_get_server_config_rpc", void,
                              qtn_get_server_config_out_t, NULL);
-        c->qtn_work_rpc_id
-            = MARGO_REGISTER(mid, "qtn_work_rpc", void, qtn_work_out_t, NULL);
+        c->qtn_work_rpc_id = MARGO_REGISTER(mid, "qtn_work_rpc", qtn_work_in_t,
+                                            qtn_work_out_t, NULL);
     }
 
     *client = c;
