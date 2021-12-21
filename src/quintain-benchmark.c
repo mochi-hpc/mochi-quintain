@@ -12,6 +12,7 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/mman.h>
+#include <zlib.h>
 
 #include <json-c/json.h>
 #include <mpi.h>
@@ -65,6 +66,7 @@
 struct options {
     char group_file[256];
     char json_file[256];
+    char output_file[256];
 };
 
 static int  parse_args(int                  argc,
@@ -114,6 +116,7 @@ int main(int argc, char** argv)
     double  rel_ts;
     double* samples;
     int     sample_index = 0;
+    gzFile  f            = NULL;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -188,6 +191,12 @@ int main(int argc, char** argv)
 
     /* have rank 0 in benchmark report configuration */
     if (my_rank == 0) {
+        f = gzopen(opts.output_file, "w");
+        if (!f) {
+            fprintf(stderr, "Error opening %s\n", opts.output_file);
+            goto err_qtn_cleanup;
+        }
+
         /* retrieve configuration from provider */
         ret = quintain_get_server_config(qph, &svr_cfg_str);
         if (ret != QTN_SUCCESS) {
@@ -195,19 +204,18 @@ int main(int argc, char** argv)
             goto err_qtn_cleanup;
         }
 
-        printf("\"margo (server)\" : %s\n", svr_cfg_str);
-        if (svr_cfg_str) free(svr_cfg_str);
-
         /* retrieve local configuration */
         cli_cfg_str = margo_get_config(mid);
 
-        printf("\"margo (client)\" : %s\n", cli_cfg_str);
-        if (cli_cfg_str) free(cli_cfg_str);
+        gzprintf(f, "\"margo (server)\" : %s\n", svr_cfg_str);
+        gzprintf(f, "\"margo (client)\" : %s\n", cli_cfg_str);
+        gzprintf(f, "\"quintain-benchmark\" : %s\n",
+                 json_object_to_json_string_ext(
+                     json_cfg,
+                     JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
 
-        printf("\"quintain-benchmark\" : %s\n",
-               json_object_to_json_string_ext(
-                   json_cfg,
-                   JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+        if (svr_cfg_str) free(svr_cfg_str);
+        if (cli_cfg_str) free(cli_cfg_str);
     }
 
     req_buffer_size = json_object_get_int(
@@ -246,6 +254,7 @@ int main(int argc, char** argv)
     } while (rel_ts < duration_seconds);
 
 err_qtn_cleanup:
+    if (f) gzclose(f);
     if (samples) munmap(samples, MAX_SAMPLES * sizeof(double));
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
     if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
@@ -331,7 +340,7 @@ static int parse_args(int                  argc,
 
     memset(opts, 0, sizeof(*opts));
 
-    while ((opt = getopt(argc, argv, "g:j:")) != -1) {
+    while ((opt = getopt(argc, argv, "g:j:o:")) != -1) {
         switch (opt) {
         case 'g':
             ret = sscanf(optarg, "%s", opts->group_file);
@@ -341,6 +350,10 @@ static int parse_args(int                  argc,
             ret = sscanf(optarg, "%s", opts->json_file);
             if (ret != 1) return (-1);
             break;
+        case 'o':
+            ret = sscanf(optarg, "%s", opts->output_file);
+            if (ret != 1) return (-1);
+            break;
         default:
             return (-1);
         }
@@ -348,6 +361,14 @@ static int parse_args(int                  argc,
 
     if (strlen(opts->group_file) == 0) return (-1);
     if (strlen(opts->json_file) == 0) return (-1);
+    if (strlen(opts->output_file) == 0) return (-1);
+
+    /* add .gz on to the output file name if it isn't already there */
+    if ((strlen(opts->output_file) < 3)
+        || (strcmp(".gz", &opts->output_file[strlen(opts->output_file) - 3])
+            != 0)) {
+        strcat(opts->output_file, ".gz");
+    }
 
     return (parse_json(opts->json_file, json_cfg));
 }
@@ -356,6 +377,7 @@ static void usage(void)
 {
     fprintf(stderr,
             "Usage: "
-            "quintain-benchmark -g <group_file> -j <configuration json>\n");
+            "quintain-benchmark -g <group_file> -j <configuration json> -o "
+            "<output file>\n");
     return;
 }

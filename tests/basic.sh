@@ -14,7 +14,7 @@ BEDROCK_PID=$!
 
 sleep 2
 
-src/quintain-benchmark -g quintain.ssg -j $srcdir/tests/quintain-benchmark-example.json
+src/quintain-benchmark -g quintain.ssg -j $srcdir/tests/quintain-benchmark-example.json -o test-output
 
 kill $BEDROCK_PID
 wait
