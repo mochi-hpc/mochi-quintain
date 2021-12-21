@@ -11,12 +11,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <sys/mman.h>
+
 #include <json-c/json.h>
 #include <mpi.h>
 
 #include <abt.h>
 #include <ssg.h>
 #include <quintain-client.h>
+
+/* record up to 32 million (power of 2) samples.  This will take 256 MiB of RAM
+ * per rank */
+#define MAX_SAMPLES (32 * 1024 * 1024)
 
 // Overrides a field with an integer. If the field already existed and was
 // different from the new value, and __warning is true, prints a warning.
@@ -104,8 +110,10 @@ int main(int argc, char** argv)
     hg_addr_t                  svr_addr    = HG_ADDR_NULL;
     struct options             opts;
     struct json_object*        json_cfg;
-    int    req_buffer_size, resp_buffer_size, duration_seconds;
-    double rel_ts;
+    int     req_buffer_size, resp_buffer_size, duration_seconds;
+    double  rel_ts;
+    double* samples;
+    int     sample_index = 0;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -209,6 +217,18 @@ int main(int argc, char** argv)
     duration_seconds = json_object_get_int(
         json_object_object_get(json_cfg, "duration_seconds"));
 
+    /* allocate with mmap rather than malloc just so we can use the
+     * MAP_POPULATE flag to get the paging out of the way before we start
+     * measurements
+     */
+    samples = mmap(NULL, MAX_SAMPLES * sizeof(double), PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, 0, 0);
+    if (!samples) {
+        perror("mmap");
+        ret = -1;
+        goto err_qtn_cleanup;
+    }
+
     /* barrier to start measurements */
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -221,10 +241,12 @@ int main(int argc, char** argv)
             goto err_qtn_cleanup;
         }
         rel_ts = ABT_get_wtime() - g_start_ts;
-        /* TODO: record timings */
+        if (sample_index < MAX_SAMPLES) samples[sample_index] = rel_ts;
+        sample_index++;
     } while (rel_ts < duration_seconds);
 
 err_qtn_cleanup:
+    if (samples) munmap(samples, MAX_SAMPLES * sizeof(double));
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
     if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
 err_margo_cleanup:
