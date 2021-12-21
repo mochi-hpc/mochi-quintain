@@ -9,7 +9,7 @@ if [ -z $srcdir ]; then
 fi
 
 export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$PWD/src/.libs"
-bedrock -c $srcdir/tests/mochi-quintain-provider.yaml na+sm:// &
+bedrock -c $srcdir/tests/mochi-quintain-provider.json na+sm:// &
 BEDROCK_PID=$!
 
 sleep 2
