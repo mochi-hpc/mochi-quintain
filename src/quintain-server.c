@@ -171,7 +171,10 @@ static void qtn_work_ult(hg_handle_t handle)
 
     QTN_INFO(mid, "qtn_work with resp_buffer_size: %lu\n", in.resp_buffer_size);
     out.resp_buffer_size = in.resp_buffer_size;
-    if (in.resp_buffer_size) out.resp_buffer = calloc(1, in.resp_buffer_size);
+    if (in.resp_buffer_size)
+        out.resp_buffer = calloc(1, in.resp_buffer_size);
+    else
+        out.resp_buffer = NULL;
 
 finish:
     margo_respond(handle, &out);

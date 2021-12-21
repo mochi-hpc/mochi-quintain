@@ -34,6 +34,27 @@
                                json_object_new_int64(__value));               \
     } while (0)
 
+// Checks if a JSON object has a particular key and its value is of the
+// specified type (not array or object or null). If the field does not exist,
+// creates it with the provided value.. If the field exists but is not of type
+// object, prints an error and return -1. After a call to this macro, __out is
+// set to the ceated/found field.
+#define CONFIG_HAS_OR_CREATE(__config, __type, __key, __value, __out)    \
+    do {                                                                 \
+        __out = json_object_object_get(__config, __key);                 \
+        if (__out && !json_object_is_type(__out, json_type_##__type)) {  \
+            fprintf(stderr,                                              \
+                    "\"%s\" in configuration but has an incorrect type " \
+                    "(expected %s)",                                     \
+                    __key, #__type);                                     \
+            return -1;                                                   \
+        }                                                                \
+        if (!__out) {                                                    \
+            __out = json_object_new_##__type(__value);                   \
+            json_object_object_add(__config, __key, __out);              \
+        }                                                                \
+    } while (0)
+
 struct options {
     char group_file[256];
     char json_file[256];
@@ -73,13 +94,14 @@ int main(int argc, char** argv)
     char*                      svr_addr_str = NULL;
     char*                      proto;
     char*                      svr_cfg_str;
-    char*                      cli_cfg_str;
-    margo_instance_id          mid      = MARGO_INSTANCE_NULL;
-    quintain_client_t          qcl      = QTN_CLIENT_NULL;
-    quintain_provider_handle_t qph      = QTN_PROVIDER_HANDLE_NULL;
-    hg_addr_t                  svr_addr = HG_ADDR_NULL;
+    char*                      cli_cfg_str = NULL;
+    margo_instance_id          mid         = MARGO_INSTANCE_NULL;
+    quintain_client_t          qcl         = QTN_CLIENT_NULL;
+    quintain_provider_handle_t qph         = QTN_PROVIDER_HANDLE_NULL;
+    hg_addr_t                  svr_addr    = HG_ADDR_NULL;
     struct options             opts;
     struct json_object*        json_cfg;
+    int                        req_buffer_size, resp_buffer_size;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -176,10 +198,15 @@ int main(int argc, char** argv)
                    JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
     }
 
+    req_buffer_size = json_object_get_int(
+        json_object_object_get(json_cfg, "req_buffer_size"));
+    resp_buffer_size = json_object_get_int(
+        json_object_object_get(json_cfg, "resp_buffer_size"));
+
     /* TODO: fill in workload and measurement; for now just one RPC from
      * each client
      */
-    ret = quintain_work(qph, 128, 128);
+    ret = quintain_work(qph, req_buffer_size, resp_buffer_size);
     if (ret != QTN_SUCCESS) {
         fprintf(stderr, "Error: quintain_work() failure.\n");
         goto err_qtn_cleanup;
@@ -209,6 +236,7 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     FILE*                   f;
     long                    fsize;
     int                     nranks;
+    struct json_object*     val;
 
     /* open json file */
     f = fopen(json_file, "r");
@@ -250,6 +278,11 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     /* validate input params or fill in defaults */
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
     CONFIG_OVERRIDE_INTEGER(*json_cfg, "nranks", nranks, 1);
+
+    /* set defaults if not present */
+    CONFIG_HAS_OR_CREATE(*json_cfg, int, "duration_seconds", 10, val);
+    CONFIG_HAS_OR_CREATE(*json_cfg, int, "req_buffer_size", 128, val);
+    CONFIG_HAS_OR_CREATE(*json_cfg, int, "resp_buffer_size", 128, val);
 
     return (0);
 }

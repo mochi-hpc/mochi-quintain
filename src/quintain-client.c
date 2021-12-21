@@ -173,7 +173,10 @@ int quintain_work(quintain_provider_handle_t provider,
 
     in.resp_buffer_size = resp_buffer_size;
     in.req_buffer_size  = req_buffer_size;
-    if (req_buffer_size) in.req_buffer = calloc(1, req_buffer_size);
+    if (req_buffer_size)
+        in.req_buffer = calloc(1, req_buffer_size);
+    else
+        in.req_buffer = NULL;
     hret = margo_provider_forward(provider->provider_id, handle, &in);
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
