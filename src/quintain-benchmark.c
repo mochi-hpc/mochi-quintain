@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
+#include <json-c/json.h>
 #include <mpi.h>
 
 #include <ssg.h>
@@ -19,10 +19,13 @@
 
 struct options {
     char group_file[256];
+    char json_file[256];
 };
-static struct options g_opts;
 
-static int  parse_args(int argc, char** argv, struct options* opts);
+static int  parse_args(int                  argc,
+                       char**               argv,
+                       struct options*      opts,
+                       struct json_object** json_cfg);
 static void usage(void);
 
 /* TODO: where should this function reside?  This is copied from
@@ -58,12 +61,14 @@ int main(int argc, char** argv)
     quintain_client_t          qcl      = QTN_CLIENT_NULL;
     quintain_provider_handle_t qph      = QTN_PROVIDER_HANDLE_NULL;
     hg_addr_t                  svr_addr = HG_ADDR_NULL;
+    struct options             opts;
+    struct json_object*        json_cfg;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
-    ret = parse_args(argc, argv, &g_opts);
+    ret = parse_args(argc, argv, &opts, &json_cfg);
     if (ret < 0) {
         usage();
         exit(EXIT_FAILURE);
@@ -81,10 +86,10 @@ int main(int argc, char** argv)
 
     /* load ssg group information */
     nproviders = 1;
-    ret        = ssg_group_id_load(g_opts.group_file, &nproviders, &gid);
+    ret        = ssg_group_id_load(opts.group_file, &nproviders, &gid);
     if (ret != SSG_SUCCESS) {
         fprintf(stderr, "Error: failed to load ssg group from file %s.\n",
-                g_opts.group_file);
+                opts.group_file);
         goto err_ssg_cleanup;
     }
 
@@ -169,21 +174,77 @@ err_ssg_cleanup:
     ssg_finalize();
 err_mpi_cleanup:
     MPI_Finalize();
+    if (json_cfg) json_object_put(json_cfg);
 
     return ret;
 }
 
-static int parse_args(int argc, char** argv, struct options* opts)
+static int parse_json(const char* json_file, struct json_object** json_cfg)
+{
+    struct json_tokener*    tokener;
+    enum json_tokener_error jerr;
+    char*                   json_cfg_str = NULL;
+    FILE*                   f;
+    long                    fsize;
+
+    /* open json file */
+    f = fopen(json_file, "r");
+    if (!f) {
+        perror("fopen");
+        fprintf(stderr, "Error: could not open json file %s\n", json_file);
+        return (-1);
+    }
+
+    /* check size */
+    fseek(f, 0, SEEK_END);
+    fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    /* allocate space to hold contents and read it in */
+    json_cfg_str = malloc(fsize + 1);
+    if (!json_cfg_str) {
+        perror("malloc");
+        return (-1);
+    }
+    fread(json_cfg_str, 1, fsize, f);
+    fclose(f);
+    json_cfg_str[fsize] = 0;
+
+    /* parse json */
+    tokener = json_tokener_new();
+    *json_cfg
+        = json_tokener_parse_ex(tokener, json_cfg_str, strlen(json_cfg_str));
+    if (!(*json_cfg)) {
+        jerr = json_tokener_get_error(tokener);
+        fprintf(stderr, "JSON parse error: %s", json_tokener_error_desc(jerr));
+        json_tokener_free(tokener);
+        free(json_cfg_str);
+        return -1;
+    }
+    json_tokener_free(tokener);
+    free(json_cfg_str);
+
+    return (0);
+}
+
+static int parse_args(int                  argc,
+                      char**               argv,
+                      struct options*      opts,
+                      struct json_object** json_cfg)
 {
     int opt;
     int ret;
 
     memset(opts, 0, sizeof(*opts));
 
-    while ((opt = getopt(argc, argv, "g:")) != -1) {
+    while ((opt = getopt(argc, argv, "g:j:")) != -1) {
         switch (opt) {
         case 'g':
             ret = sscanf(optarg, "%s", opts->group_file);
+            if (ret != 1) return (-1);
+            break;
+        case 'j':
+            ret = sscanf(optarg, "%s", opts->json_file);
             if (ret != 1) return (-1);
             break;
         default:
@@ -192,14 +253,15 @@ static int parse_args(int argc, char** argv, struct options* opts)
     }
 
     if (strlen(opts->group_file) == 0) return (-1);
+    if (strlen(opts->json_file) == 0) return (-1);
 
-    return (0);
+    return (parse_json(opts->json_file, json_cfg));
 }
 
 static void usage(void)
 {
     fprintf(stderr,
             "Usage: "
-            "quintain-benchmark -g <group_file>\n");
+            "quintain-benchmark -g <group_file> -j <configuration json>\n");
     return;
 }
