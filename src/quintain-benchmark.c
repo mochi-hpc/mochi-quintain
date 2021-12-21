@@ -152,6 +152,11 @@ int main(int argc, char** argv)
 
         printf("\"margo (client)\" : %s\n", cli_cfg_str);
         if (cli_cfg_str) free(cli_cfg_str);
+
+        printf("\"quintain-benchmark\" : %s\n",
+               json_object_to_json_string_ext(
+                   json_cfg,
+                   JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
     }
 
     /* TODO: fill in workload and measurement; for now just one RPC from
