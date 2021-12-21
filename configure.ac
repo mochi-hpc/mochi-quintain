@@ -91,6 +91,9 @@ LIBS="$SSG_LIBS $LIBS"
 CPPFLAGS="$SSG_CFLAGS $CPPFLAGS"
 CFLAGS="$SSG_CFLAGS $CFLAGS"
 
+# need zlib output file
+CHECK_ZLIB
+
 # optional mpi; this will cause the benchmark program to be built as well,
 # in addition to the provider piece
 AC_MSG_CHECKING([If MPI programs can be compiled])
