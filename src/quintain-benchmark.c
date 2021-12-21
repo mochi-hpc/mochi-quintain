@@ -87,6 +87,8 @@ static char* get_proto_from_addr(char* addr_str)
     return p;
 }
 
+static double g_start_ts = 0;
+
 int main(int argc, char** argv)
 {
     int                        nranks, nproviders, my_rank;
@@ -103,7 +105,7 @@ int main(int argc, char** argv)
     struct options             opts;
     struct json_object*        json_cfg;
     int    req_buffer_size, resp_buffer_size, duration_seconds;
-    double start_ts, this_ts;
+    double rel_ts;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -210,7 +212,7 @@ int main(int argc, char** argv)
     /* barrier to start measurements */
     MPI_Barrier(MPI_COMM_WORLD);
 
-    start_ts = ABT_get_wtime();
+    g_start_ts = ABT_get_wtime();
 
     do {
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size);
@@ -218,9 +220,9 @@ int main(int argc, char** argv)
             fprintf(stderr, "Error: quintain_work() failure.\n");
             goto err_qtn_cleanup;
         }
-        this_ts = ABT_get_wtime();
+        rel_ts = ABT_get_wtime() - g_start_ts;
         /* TODO: record timings */
-    } while (this_ts - start_ts < duration_seconds);
+    } while (rel_ts < duration_seconds);
 
 err_qtn_cleanup:
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
