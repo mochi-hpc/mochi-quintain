@@ -98,8 +98,6 @@ static char* get_proto_from_addr(char* addr_str)
     return p;
 }
 
-static double g_start_ts = 0;
-
 int main(int argc, char** argv)
 {
     int                        nranks, nproviders, my_rank;
@@ -116,12 +114,13 @@ int main(int argc, char** argv)
     struct options             opts;
     struct json_object*        json_cfg;
     int     req_buffer_size, resp_buffer_size, duration_seconds;
-    double  rel_ts;
+    double  this_ts, prev_ts, start_ts;
     double* samples;
     int     sample_index = 0;
     gzFile  f            = NULL;
     char    rank_file[300];
     int     i;
+    int     trace_flag = 0;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -202,6 +201,8 @@ int main(int argc, char** argv)
         json_object_object_get(json_cfg, "resp_buffer_size"));
     duration_seconds = json_object_get_int(
         json_object_object_get(json_cfg, "duration_seconds"));
+    trace_flag
+        = json_object_get_boolean(json_object_object_get(json_cfg, "trace"));
 
     /* allocate with mmap rather than malloc just so we can use the
      * MAP_POPULATE flag to get the paging out of the way before we start
@@ -218,7 +219,8 @@ int main(int argc, char** argv)
     /* barrier to start measurements */
     MPI_Barrier(MPI_COMM_WORLD);
 
-    g_start_ts = ABT_get_wtime();
+    start_ts = ABT_get_wtime();
+    prev_ts  = 0;
 
     do {
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size);
@@ -226,10 +228,15 @@ int main(int argc, char** argv)
             fprintf(stderr, "Error: quintain_work() failure.\n");
             goto err_qtn_cleanup;
         }
-        rel_ts = ABT_get_wtime() - g_start_ts;
-        if (sample_index < MAX_SAMPLES) samples[sample_index] = rel_ts;
+        this_ts = ABT_get_wtime() - start_ts;
+        /* save just the elapsed time; we can reconstruct start and end
+         * timestamps later since this is a tight loop
+         */
+        if (sample_index < MAX_SAMPLES)
+            samples[sample_index] = this_ts - prev_ts;
+        prev_ts = this_ts;
         sample_index++;
-    } while (rel_ts < duration_seconds);
+    } while (this_ts < duration_seconds);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -258,6 +265,17 @@ int main(int argc, char** argv)
                  json_object_to_json_string_ext(
                      json_cfg,
                      JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+    }
+
+    /* if requested, report every sample */
+    if (trace_flag) {
+        gzprintf(f, "# trace_sample\t<rank>\t<start>\t<end>\t<elapsed>\n");
+        this_ts = 0;
+        for (i = 0; i < sample_index && i < MAX_SAMPLES; i++) {
+            gzprintf(f, "trace_sample\t%d\t%f\t%f\t%f\n", my_rank, this_ts,
+                     (this_ts + samples[i]), samples[i]);
+            this_ts += samples[i];
+        }
     }
 
     if (f) {
@@ -374,6 +392,7 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "duration_seconds", 3, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "req_buffer_size", 128, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "resp_buffer_size", 128, val);
+    CONFIG_HAS_OR_CREATE(*json_cfg, boolean, "trace", 1, val);
 
     return (0);
 }
