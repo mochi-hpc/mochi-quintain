@@ -15,6 +15,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <zlib.h>
 
 #include <json-c/json.h>
@@ -313,6 +314,7 @@ int main(int argc, char** argv)
                 } while (ret > 0);
                 close(fd_rank);
             }
+            unlink(rank_file);
         }
         close(fd);
     }
