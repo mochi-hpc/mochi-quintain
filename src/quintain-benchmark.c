@@ -73,11 +73,21 @@ struct options {
     char output_file[256];
 };
 
+struct sample_statistics {
+    double min;
+    double q1;
+    double median;
+    double q3;
+    double max;
+    double mean;
+};
+
 static int  parse_args(int                  argc,
                        char**               argv,
                        struct options*      opts,
                        struct json_object** json_cfg);
 static void usage(void);
+static int  sample_compare(const void* p1, const void* p2);
 
 /* TODO: where should this function reside?  This is copied from
  * bv-client.cc but it is probably more generally useful for a client that
@@ -121,7 +131,8 @@ int main(int argc, char** argv)
     gzFile  f            = NULL;
     char    rank_file[300];
     int     i;
-    int     trace_flag = 0;
+    int     trace_flag             = 0;
+    struct sample_statistics stats = {0};
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -270,14 +281,35 @@ int main(int argc, char** argv)
 
     /* if requested, report every sample */
     if (trace_flag) {
-        gzprintf(f, "# trace_sample\t<rank>\t<start>\t<end>\t<elapsed>\n");
+        gzprintf(f, "# sample_trace\t<rank>\t<start>\t<end>\t<elapsed>\n");
         this_ts = 0;
         for (i = 0; i < sample_index && i < MAX_SAMPLES; i++) {
-            gzprintf(f, "trace_sample\t%d\t%f\t%f\t%f\n", my_rank, this_ts,
+            gzprintf(f, "sample_trace\t%d\t%f\t%f\t%f\n", my_rank, this_ts,
                      (this_ts + samples[i]), samples[i]);
             this_ts += samples[i];
         }
     }
+
+    /* now that samples have been written out individually in the order they
+     * occurred (if requested), we can locally sort and generate some
+     * statistics
+     */
+    if (sample_index > MAX_SAMPLES) sample_index = MAX_SAMPLES;
+    qsort(samples, sample_index, sizeof(double), sample_compare);
+    /* there should be a lot of samples; we aren't going to bother
+     * interpolating between points if there isn't a precise sample for the
+     * medians or quartiles
+     */
+    stats.min    = samples[0];
+    stats.q1     = samples[sample_index / 4];
+    stats.median = samples[sample_index / 2];
+    stats.q3     = samples[3 * (sample_index / 4)];
+    stats.max    = samples[sample_index - 1];
+    for (i = 0; i < sample_index; i++) stats.mean += samples[i];
+    stats.mean /= (double)sample_index;
+    gzprintf(f, "sample_stats\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>\n");
+    gzprintf(f, "sample_stats\t%f\t%f\t%f\t%f\t%f\t%f\n", stats.min, stats.q1,
+             stats.median, stats.q3, stats.max, stats.mean);
 
     if (f) {
         gzclose(f);
@@ -449,4 +481,14 @@ static void usage(void)
             "quintain-benchmark -g <group_file> -j <configuration json> -o "
             "<output file>\n");
     return;
+}
+
+static int sample_compare(const void* p1, const void* p2)
+{
+    double d1 = *((double*)p1);
+    double d2 = *((double*)p2);
+
+    if (d1 > d2) return 1;
+    if (d1 < d2) return -1;
+    return 0;
 }
