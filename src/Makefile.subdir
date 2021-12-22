@@ -5,6 +5,8 @@ src_libquintain_client_la_SOURCES += src/quintain-client.c
 
 src_libquintain_server_la_SOURCES += src/quintain-server.c
 
+dist_bin_SCRIPTS += src/quintain-benchmark-parse.sh
+
 if HAVE_MPI
 bin_PROGRAMS += src/quintain-benchmark
 endif

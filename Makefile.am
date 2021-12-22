@@ -43,6 +43,8 @@ src_libquintain_server_la_SOURCES =
 
 LDADD = src/libquintain-client.la src/libquintain-server.la
 
+dist_bin_SCRIPTS =
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = \
  maint/mochi-quintain-server.pc
