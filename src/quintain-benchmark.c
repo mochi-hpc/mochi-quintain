@@ -124,15 +124,15 @@ int main(int argc, char** argv)
     hg_addr_t                  svr_addr    = HG_ADDR_NULL;
     struct options             opts;
     struct json_object*        json_cfg;
-    int     req_buffer_size, resp_buffer_size, duration_seconds;
-    double  this_ts, prev_ts, start_ts;
-    double* samples;
-    int     sample_index = 0;
-    gzFile  f            = NULL;
-    char    rank_file[300];
-    int     i;
-    int     trace_flag             = 0;
-    struct sample_statistics stats = {0};
+    int req_buffer_size, resp_buffer_size, duration_seconds, warmup_iterations;
+    double                   this_ts, prev_ts, start_ts;
+    double*                  samples;
+    int                      sample_index = 0;
+    gzFile                   f            = NULL;
+    char                     rank_file[300];
+    int                      i;
+    int                      trace_flag = 0;
+    struct sample_statistics stats      = {0};
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -213,6 +213,8 @@ int main(int argc, char** argv)
         json_object_object_get(json_cfg, "resp_buffer_size"));
     duration_seconds = json_object_get_int(
         json_object_object_get(json_cfg, "duration_seconds"));
+    warmup_iterations = json_object_get_int(
+        json_object_object_get(json_cfg, "warmup_iterations"));
     trace_flag
         = json_object_get_boolean(json_object_object_get(json_cfg, "trace"));
 
@@ -226,6 +228,15 @@ int main(int argc, char** argv)
         perror("mmap");
         ret = -1;
         goto err_qtn_cleanup;
+    }
+
+    /* run warm up iterations, if specified */
+    for (i = 0; i < warmup_iterations; i++) {
+        ret = quintain_work(qph, req_buffer_size, resp_buffer_size);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Error: quintain_work() failure.\n");
+            goto err_qtn_cleanup;
+        }
     }
 
     /* barrier to start measurements */
@@ -423,9 +434,10 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     CONFIG_OVERRIDE_INTEGER(*json_cfg, "nranks", nranks, 1);
 
     /* set defaults if not present */
-    CONFIG_HAS_OR_CREATE(*json_cfg, int, "duration_seconds", 3, val);
+    CONFIG_HAS_OR_CREATE(*json_cfg, int, "duration_seconds", 2, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "req_buffer_size", 128, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "resp_buffer_size", 128, val);
+    CONFIG_HAS_OR_CREATE(*json_cfg, int, "warmup_iterations", 10, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, boolean, "trace", 1, val);
 
     return (0);
