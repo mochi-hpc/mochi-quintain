@@ -318,9 +318,12 @@ int main(int argc, char** argv)
     stats.max    = samples[sample_index - 1];
     for (i = 0; i < sample_index; i++) stats.mean += samples[i];
     stats.mean /= (double)sample_index;
-    gzprintf(f, "sample_stats\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>\n");
-    gzprintf(f, "sample_stats\t%f\t%f\t%f\t%f\t%f\t%f\n", stats.min, stats.q1,
-             stats.median, stats.q3, stats.max, stats.mean);
+    gzprintf(
+        f,
+        "# sample_stats\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>\n");
+    gzprintf(f, "sample_stats\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
+             stats.min, stats.q1, stats.median, stats.q3, stats.max,
+             stats.mean);
 
     if (f) {
         gzclose(f);
