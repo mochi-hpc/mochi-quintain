@@ -12,6 +12,9 @@
 #include <string.h>
 #include <assert.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <zlib.h>
 
 #include <json-c/json.h>
@@ -104,7 +107,7 @@ int main(int argc, char** argv)
     ssg_group_id_t             gid;
     char*                      svr_addr_str = NULL;
     char*                      proto;
-    char*                      svr_cfg_str;
+    char*                      svr_cfg_str = NULL;
     char*                      cli_cfg_str = NULL;
     margo_instance_id          mid         = MARGO_INSTANCE_NULL;
     quintain_client_t          qcl         = QTN_CLIENT_NULL;
@@ -117,6 +120,8 @@ int main(int argc, char** argv)
     double* samples;
     int     sample_index = 0;
     gzFile  f            = NULL;
+    char    rank_file[300];
+    int     i;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -127,6 +132,8 @@ int main(int argc, char** argv)
         usage();
         exit(EXIT_FAILURE);
     }
+    /* file name for intermediate results from this rank */
+    sprintf(rank_file, "%s.%d", opts.output_file, my_rank);
 
     /* TODO: update to show human readable errors on ssg failures once SSG
      * api has error printing macro
@@ -189,35 +196,6 @@ int main(int argc, char** argv)
         goto err_qtn_cleanup;
     }
 
-    /* have rank 0 in benchmark report configuration */
-    if (my_rank == 0) {
-        f = gzopen(opts.output_file, "w");
-        if (!f) {
-            fprintf(stderr, "Error opening %s\n", opts.output_file);
-            goto err_qtn_cleanup;
-        }
-
-        /* retrieve configuration from provider */
-        ret = quintain_get_server_config(qph, &svr_cfg_str);
-        if (ret != QTN_SUCCESS) {
-            fprintf(stderr, "Error: quintain_get_server_config() failure.\n");
-            goto err_qtn_cleanup;
-        }
-
-        /* retrieve local configuration */
-        cli_cfg_str = margo_get_config(mid);
-
-        gzprintf(f, "\"margo (server)\" : %s\n", svr_cfg_str);
-        gzprintf(f, "\"margo (client)\" : %s\n", cli_cfg_str);
-        gzprintf(f, "\"quintain-benchmark\" : %s\n",
-                 json_object_to_json_string_ext(
-                     json_cfg,
-                     JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
-
-        if (svr_cfg_str) free(svr_cfg_str);
-        if (cli_cfg_str) free(cli_cfg_str);
-    }
-
     req_buffer_size = json_object_get_int(
         json_object_object_get(json_cfg, "req_buffer_size"));
     resp_buffer_size = json_object_get_int(
@@ -253,7 +231,77 @@ int main(int argc, char** argv)
         sample_index++;
     } while (rel_ts < duration_seconds);
 
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    /* store results */
+    f = gzopen(rank_file, "w");
+    if (!f) {
+        fprintf(stderr, "Error opening %s\n", opts.output_file);
+        goto err_qtn_cleanup;
+    }
+
+    /* have rank 0 in benchmark report configuration */
+    if (my_rank == 0) {
+        /* retrieve configuration from provider */
+        ret = quintain_get_server_config(qph, &svr_cfg_str);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Error: quintain_get_server_config() failure.\n");
+            goto err_qtn_cleanup;
+        }
+
+        /* retrieve local configuration */
+        cli_cfg_str = margo_get_config(mid);
+
+        gzprintf(f, "\"margo (server)\" : %s\n", svr_cfg_str);
+        gzprintf(f, "\"margo (client)\" : %s\n", cli_cfg_str);
+        gzprintf(f, "\"quintain-benchmark\" : %s\n",
+                 json_object_to_json_string_ext(
+                     json_cfg,
+                     JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
+    }
+
+    if (f) {
+        gzclose(f);
+        f = NULL;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    /* rank 0 concatenate all of the intermediate results into a single
+     * output file.  The gzip file format produces a legal gzip'd file when
+     * multiple are concatenated
+     */
+    if (my_rank == 0) {
+        int fd_rank;
+        int fd;
+        rename(rank_file, opts.output_file);
+
+        fd = open(opts.output_file, O_WRONLY | O_CREAT | O_APPEND, 0660);
+        if (fd < 0) {
+            perror("open");
+            ret = fd;
+            goto err_qtn_cleanup;
+        }
+
+        for (i = 1; i < nranks; i++) {
+            /* no hard errors here; if we can't get data for a rank just
+             * skip it
+             */
+            sprintf(rank_file, "%s.%d", opts.output_file, i);
+            fd_rank = open(rank_file, O_RDONLY);
+            if (fd_rank > -1) {
+                do {
+                    ret = read(fd_rank, samples, MAX_SAMPLES * sizeof(double));
+                    if (ret > 0) write(fd, samples, ret);
+                } while (ret > 0);
+                close(fd_rank);
+            }
+        }
+        close(fd);
+    }
+
 err_qtn_cleanup:
+    if (svr_cfg_str) free(svr_cfg_str);
+    if (cli_cfg_str) free(cli_cfg_str);
     if (f) gzclose(f);
     if (samples) munmap(samples, MAX_SAMPLES * sizeof(double));
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
