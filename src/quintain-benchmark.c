@@ -379,8 +379,11 @@ err_ssg_cleanup:
     if (svr_addr_str) free(svr_addr_str);
     ssg_finalize();
 err_mpi_cleanup:
-    MPI_Finalize();
     if (json_cfg) json_object_put(json_cfg);
+    if (ret)
+        MPI_Abort(MPI_COMM_WORLD, -1);
+    else
+        MPI_Finalize();
 
     return ret;
 }
