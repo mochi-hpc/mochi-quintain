@@ -166,7 +166,7 @@ int main(int argc, char** argv)
     }
 
     /* get addr for rank 0 in ssg group */
-    ret = ssg_group_id_get_addr_str(gid, 0, &svr_addr_str);
+    ret = ssg_get_group_member_addr_str(gid, 0, &svr_addr_str);
     if (ret != SSG_SUCCESS) {
         fprintf(stderr,
                 "Error: failed to retrieve first server addr from ssg.\n");

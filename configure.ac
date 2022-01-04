@@ -85,8 +85,8 @@ LIBS="$BEDROCK_LIBS $LIBS"
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
 
-PKG_CHECK_MODULES([SSG], [ssg],[],
-   [AC_MSG_ERROR([Could not find working SSG installation!])])
+PKG_CHECK_MODULES([SSG], [ssg >= 0.5],[],
+   [AC_MSG_ERROR([Could not find working SSG installationi v0.5 or higher])])
 LIBS="$SSG_LIBS $LIBS"
 CPPFLAGS="$SSG_CFLAGS $CPPFLAGS"
 CFLAGS="$SSG_CFLAGS $CFLAGS"
