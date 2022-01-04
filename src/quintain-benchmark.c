@@ -89,39 +89,19 @@ static int  parse_args(int                  argc,
 static void usage(void);
 static int  sample_compare(const void* p1, const void* p2);
 
-/* TODO: where should this function reside?  This is copied from
- * bv-client.cc but it is probably more generally useful for a client that
- * bootstraps based on a generic ssg group id in which it doesn't know which
- * protocol to start margo with otherwise
- *
- * Note that this version returns a pointer that must be free'd by caller
- */
-static char* get_proto_from_addr(char* addr_str)
-{
-    char* p = strdup(addr_str);
-    if (p == NULL) return NULL;
-    char* q = strchr(p, ':');
-    if (q == NULL) {
-        free(p);
-        return NULL;
-    }
-    *q = '\0';
-    return p;
-}
-
 int main(int argc, char** argv)
 {
     int                        nranks, nproviders, my_rank;
     int                        ret;
     ssg_group_id_t             gid;
     char*                      svr_addr_str = NULL;
-    char*                      proto;
-    char*                      svr_cfg_str = NULL;
-    char*                      cli_cfg_str = NULL;
-    margo_instance_id          mid         = MARGO_INSTANCE_NULL;
-    quintain_client_t          qcl         = QTN_CLIENT_NULL;
-    quintain_provider_handle_t qph         = QTN_PROVIDER_HANDLE_NULL;
-    hg_addr_t                  svr_addr    = HG_ADDR_NULL;
+    char                       proto[64]    = {0};
+    char*                      svr_cfg_str  = NULL;
+    char*                      cli_cfg_str  = NULL;
+    margo_instance_id          mid          = MARGO_INSTANCE_NULL;
+    quintain_client_t          qcl          = QTN_CLIENT_NULL;
+    quintain_provider_handle_t qph          = QTN_PROVIDER_HANDLE_NULL;
+    hg_addr_t                  svr_addr     = HG_ADDR_NULL;
     struct options             opts;
     struct json_object*        json_cfg;
     int req_buffer_size, resp_buffer_size, duration_seconds, warmup_iterations;
@@ -133,6 +113,7 @@ int main(int argc, char** argv)
     int                      i;
     int                      trace_flag = 0;
     struct sample_statistics stats      = {0};
+    ssg_member_id_t          svr_id;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -150,10 +131,25 @@ int main(int argc, char** argv)
      * api has error printing macro
      */
 
+    /* find transport to initialize margo to match provider */
+    ret = ssg_get_group_transport_from_file(opts.group_file, proto, 64);
+    if (ret != SSG_SUCCESS) {
+        fprintf(stderr, "Error: failed to get transport from ssg file.\n");
+        goto err_mpi_cleanup;
+    }
+
+    mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
+    if (!mid) {
+        fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
+                proto);
+        ret = -1;
+        goto err_mpi_cleanup;
+    }
+
     ret = ssg_init();
     if (ret != SSG_SUCCESS) {
         fprintf(stderr, "Error: failed to initialize ssg.\n");
-        goto err_mpi_cleanup;
+        goto err_margo_cleanup;
     }
 
     /* load ssg group information */
@@ -166,38 +162,31 @@ int main(int argc, char** argv)
     }
 
     /* get addr for rank 0 in ssg group */
-    ret = ssg_get_group_member_addr_str(gid, 0, &svr_addr_str);
+    ret = ssg_get_group_member_id_from_rank(gid, 0, &svr_id);
+    if (ret != SSG_SUCCESS) {
+        fprintf(stderr,
+                "Error: failed to retrieve first server member id from ssg.\n");
+        goto err_ssg_cleanup;
+    }
+
+    ret = ssg_get_group_member_addr_str(gid, svr_id, &svr_addr_str);
     if (ret != SSG_SUCCESS) {
         fprintf(stderr,
                 "Error: failed to retrieve first server addr from ssg.\n");
         goto err_ssg_cleanup;
     }
 
-    /* find protocol */
-    proto = get_proto_from_addr(svr_addr_str);
-    /* this should never fail if addr is properly formatted */
-    assert(proto);
-
-    mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
-    free(proto);
-    if (!mid) {
-        fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
-                proto);
-        ret = -1;
-        goto err_ssg_cleanup;
-    }
-
     ret = margo_addr_lookup(mid, svr_addr_str, &svr_addr);
     if (ret != HG_SUCCESS) {
         fprintf(stderr, "Error: margo_addr_lookup()\n");
-        goto err_margo_cleanup;
+        goto err_ssg_cleanup;
     }
 
     /* TODO: error code printing fn for quintain */
     ret = quintain_client_init(mid, &qcl);
     if (ret != QTN_SUCCESS) {
         fprintf(stderr, "Error: quintain_client_init() failure.\n");
-        goto err_margo_cleanup;
+        goto err_ssg_cleanup;
     }
 
     /* TODO: allow other provider_id values besides 1 */
@@ -372,15 +361,15 @@ err_qtn_cleanup:
     if (samples) munmap(samples, MAX_SAMPLES * sizeof(double));
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
     if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
-err_margo_cleanup:
-    if (svr_addr != HG_ADDR_NULL) margo_addr_free(mid, svr_addr);
-    margo_finalize(mid);
 err_ssg_cleanup:
     if (svr_addr_str) free(svr_addr_str);
     ssg_finalize();
+err_margo_cleanup:
+    if (svr_addr != HG_ADDR_NULL) margo_addr_free(mid, svr_addr);
+    margo_finalize(mid);
 err_mpi_cleanup:
     if (json_cfg) json_object_put(json_cfg);
-    if (ret)
+    if (ret != 0)
         MPI_Abort(MPI_COMM_WORLD, -1);
     else
         MPI_Finalize();
