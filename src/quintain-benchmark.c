@@ -127,14 +127,11 @@ int main(int argc, char** argv)
     /* file name for intermediate results from this rank */
     sprintf(rank_file, "%s.%d", opts.output_file, my_rank);
 
-    /* TODO: update to show human readable errors on ssg failures once SSG
-     * api has error printing macro
-     */
-
     /* find transport to initialize margo to match provider */
     ret = ssg_get_group_transport_from_file(opts.group_file, proto, 64);
     if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: failed to get transport from ssg file.\n");
+        fprintf(stderr, "Error: ssg_get_group_transport_from_file(): %s.\n",
+                ssg_strerror(ret));
         goto err_mpi_cleanup;
     }
 
@@ -148,7 +145,7 @@ int main(int argc, char** argv)
 
     ret = ssg_init();
     if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: failed to initialize ssg.\n");
+        fprintf(stderr, "Error: ssg_init(): %s.\n", ssg_strerror(ret));
         goto err_margo_cleanup;
     }
 
@@ -156,23 +153,22 @@ int main(int argc, char** argv)
     nproviders = 1;
     ret        = ssg_group_id_load(opts.group_file, &nproviders, &gid);
     if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: failed to load ssg group from file %s.\n",
-                opts.group_file);
+        fprintf(stderr, "Error: ssg_group_id_load(): %s.\n", ssg_strerror(ret));
         goto err_ssg_cleanup;
     }
 
     /* get addr for rank 0 in ssg group */
     ret = ssg_get_group_member_id_from_rank(gid, 0, &svr_id);
     if (ret != SSG_SUCCESS) {
-        fprintf(stderr,
-                "Error: failed to retrieve first server member id from ssg.\n");
+        fprintf(stderr, "Error: ssg_group_member_id_from_rank(): %s.\n",
+                ssg_strerror(ret));
         goto err_ssg_cleanup;
     }
 
     ret = ssg_get_group_member_addr_str(gid, svr_id, &svr_addr_str);
     if (ret != SSG_SUCCESS) {
-        fprintf(stderr,
-                "Error: failed to retrieve first server addr from ssg.\n");
+        fprintf(stderr, "Error: ssg_get_group_member_addr_str(): %s.\n",
+                ssg_strerror(ret));
         goto err_ssg_cleanup;
     }
 
@@ -182,7 +178,6 @@ int main(int argc, char** argv)
         goto err_ssg_cleanup;
     }
 
-    /* TODO: error code printing fn for quintain */
     ret = quintain_client_init(mid, &qcl);
     if (ret != QTN_SUCCESS) {
         fprintf(stderr, "Error: quintain_client_init() failure.\n");
