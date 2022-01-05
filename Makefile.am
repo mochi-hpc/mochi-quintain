@@ -45,6 +45,8 @@ LDADD = src/libquintain-client.la src/libquintain-server.la
 
 dist_bin_SCRIPTS =
 
+dist_doc_DATA = README.md
+
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = \
  maint/mochi-quintain-server.pc
