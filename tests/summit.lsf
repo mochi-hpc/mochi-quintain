@@ -1,0 +1,24 @@
+#!/bin/bash
+# Begin LSF Directives
+#BSUB -P CSC332 
+#BSUB -W 0:10
+#BSUB -nnodes 4
+#BSUB -J quintain
+#BSUB -o quintain.%J
+#BSUB -e quintain.%J
+
+set -euo pipefail
+
+
+QUINTAIN=${HOME}/src/mochi-quintain
+# summit has a read-only home so we need a place to store output
+WORKING_DIR=/gpfs/alpine/csc332/scratch/${USER}/quintain
+mkdir -p  ${WORKING_DIR}
+cd  ${WORKING_DIR}
+
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$QUINTAIN/build/src/.libs"
+
+jsrun -n 4 -r 1 -c 42 bedrock  -c ${QUINTAIN}/tests/mochi-quintain-provider.json verbs:// &
+
+
+jsrun -n 4 -a 42 -c 42 ${QUINTAIN}/build/src/quintain-benchmark -g quintain.ssg -j ${QUINTAIN}/tests/quintain-benchmark-example.json -o test-output
