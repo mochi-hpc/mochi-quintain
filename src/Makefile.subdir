@@ -1,9 +1,11 @@
 src_libquintain_bedrock_la_SOURCES += src/quintain-bedrock-module.c
-src_libquintain_bedrock_la_LIBADD = src/libquintain-server.la src/libquintain-client.la
+src_libquintain_bedrock_la_LIBADD = src/libquintain-server.la
+
 
 src_libquintain_client_la_SOURCES += src/quintain-client.c \
                                      src/quintain-rpc.h
 
+noinst_LTLIBRARIES = src/libquintain-server.la
 src_libquintain_server_la_SOURCES += src/quintain-server.c \
                                      src/quintain-rpc.h
 
@@ -11,4 +13,5 @@ dist_bin_SCRIPTS += src/quintain-benchmark-parse.sh
 
 if HAVE_MPI
 bin_PROGRAMS += src/quintain-benchmark
+src_quintain_benchmark_LDADD = src/libquintain-client.la
 endif

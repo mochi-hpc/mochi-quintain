@@ -15,8 +15,7 @@ EXTRA_DIST =
 BUILT_SOURCES =
 include_HEADERS = include/quintain.h \
  include/quintain-server.h \
- include/quintain-client.h \
- include/quintain-server.h
+ include/quintain-client.h
 
 TESTS_ENVIRONMENT =
 
@@ -34,14 +33,11 @@ AM_CXXFLAGS = $(AM_CFLAGS)
 lib_LTLIBRARIES =
 
 lib_LTLIBRARIES += src/libquintain-bedrock.la\
- src/libquintain-client.la\
- src/libquintain-server.la
+ src/libquintain-client.la
 
 src_libquintain_bedrock_la_SOURCES =
 src_libquintain_client_la_SOURCES =
 src_libquintain_server_la_SOURCES =
-
-LDADD = src/libquintain-client.la src/libquintain-server.la
 
 dist_bin_SCRIPTS =
 
