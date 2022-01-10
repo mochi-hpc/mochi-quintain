@@ -32,8 +32,10 @@ AM_CXXFLAGS = $(AM_CFLAGS)
 
 lib_LTLIBRARIES =
 
-lib_LTLIBRARIES += src/libquintain-bedrock.la\
- src/libquintain-client.la
+lib_LTLIBRARIES +=\
+ src/libquintain-client.la\
+ src/libquintain-server.la\
+ src/libquintain-bedrock.la
 
 src_libquintain_bedrock_la_SOURCES =
 src_libquintain_client_la_SOURCES =
