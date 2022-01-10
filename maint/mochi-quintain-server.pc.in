@@ -7,6 +7,6 @@ Name: mochi-quintain
 Description: synthetic RPC load testing
 Version: @PACKAGE_VERSION@
 URL: https://github.com/mochi-hpc/mochi-quintain
-Requires: margo json-c bedrock ssg
+Requires: json-c bedrock
 Libs: -L${libdir}
 Cflags: -I${includedir}
