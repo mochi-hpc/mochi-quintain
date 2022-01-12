@@ -8,4 +8,10 @@ TESTS += \
  tests/basic.sh
 
 EXTRA_DIST += \
- tests/basic.sh
+ tests/basic.sh \
+ tests/mochi-quintain-provider.json\
+ tests/quintain-benchmark-example.json
+
+DISTCLEANFILES += \
+    test-output.gz \
+    quintain.ssg
