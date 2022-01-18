@@ -17,8 +17,11 @@ MERCURY_GEN_PROC(qtn_get_server_config_out_t,
 typedef struct {
     uint64_t
         resp_buffer_size; /* size of buffer provider should give in response */
-    uint64_t req_buffer_size; /* size of buffer in this request */
-    char*    req_buffer;      /* dummy buffer */
+    uint64_t  req_buffer_size; /* size of buffer in this request */
+    uint64_t  bulk_size;       /* bulk xfer size */
+    uint32_t  bulk_op;         /* what type of bulk xfer to do */
+    hg_bulk_t bulk_handle;     /* bulk handle (if set) for bulk xfer */
+    char*     req_buffer;      /* dummy buffer */
 } qtn_work_in_t;
 static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p);
 
@@ -36,6 +39,10 @@ static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p)
 
     hg_proc_uint64_t(proc, &in->resp_buffer_size);
     hg_proc_uint64_t(proc, &in->req_buffer_size);
+    hg_proc_uint64_t(proc, &in->bulk_size);
+    hg_proc_uint32_t(proc, &in->bulk_op);
+    hg_proc_hg_bulk_t(proc, &in->bulk_handle);
+    /* pack dummy data in request if requested */
     if (in->req_buffer_size) {
         buf = hg_proc_save_ptr(proc, in->req_buffer_size);
         if (hg_proc_get_op(proc) == HG_ENCODE)
