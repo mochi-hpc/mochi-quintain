@@ -19,6 +19,7 @@ typedef struct {
         resp_buffer_size; /* size of buffer provider should give in response */
     uint64_t  req_buffer_size; /* size of buffer in this request */
     uint64_t  bulk_size;       /* bulk xfer size */
+    uint32_t  flags;           /* flags to modify behavior */
     uint32_t  bulk_op;         /* what type of bulk xfer to do */
     hg_bulk_t bulk_handle;     /* bulk handle (if set) for bulk xfer */
     char*     req_buffer;      /* dummy buffer */

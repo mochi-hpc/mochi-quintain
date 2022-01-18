@@ -32,6 +32,9 @@ extern "C" {
 #define QTN_ERR_MERCURY          (-3) /* Mercury error */
 #define QTN_ERR_UNKNOWN_PROVIDER (-3) /* can't find provider */
 
+/* flags for workload operations */
+#define QTN_WORK_USE_SERVER_POOLSET 1
+
 #ifdef __cplusplus
 }
 #endif
