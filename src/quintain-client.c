@@ -184,6 +184,7 @@ int quintain_work(quintain_provider_handle_t provider,
         in.req_buffer = calloc(1, req_buffer_size);
     else
         in.req_buffer = NULL;
+    in.bulk_size = bulk_size;
     if (bulk_size) {
         hret = margo_bulk_create(provider->client->mid, 1,
                                  (void**)(&bulk_buffer), &bulk_size, bulk_flags,

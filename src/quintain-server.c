@@ -151,6 +151,9 @@ static void qtn_work_ult(hg_handle_t handle)
     const struct hg_info* info     = NULL;
     quintain_provider_t   provider = NULL;
     hg_return_t           hret;
+    void*                 bulk_buffer = NULL;
+    int                   bulk_flag   = HG_BULK_WRITE_ONLY;
+    hg_bulk_t             bulk_handle = HG_BULK_NULL;
 
     memset(&out, 0, sizeof(out));
 
@@ -175,8 +178,26 @@ static void qtn_work_ult(hg_handle_t handle)
     else
         out.resp_buffer = NULL;
 
+    if (in.bulk_size) {
+        bulk_buffer = malloc(in.bulk_size);
+        if (!bulk_buffer) {
+            out.ret = QTN_ERR_ALLOCATION;
+            goto finish;
+        }
+        if (in.bulk_op == HG_BULK_PUSH) bulk_flag = HG_BULK_READ_ONLY;
+        out.ret = margo_bulk_create(mid, 1, (void**)(&bulk_buffer),
+                                    &in.bulk_size, bulk_flag, &bulk_handle);
+        if (out.ret != HG_SUCCESS) goto finish;
+    }
+
+    /* transfer */
+    out.ret = margo_bulk_transfer(mid, in.bulk_op, info->addr, in.bulk_handle,
+                                  0, bulk_handle, 0, in.bulk_size);
+
 finish:
     margo_respond(handle, &out);
+    if (bulk_handle != HG_BULK_NULL) margo_bulk_free(bulk_handle);
+    if (bulk_buffer != NULL) free(bulk_buffer);
     if (out.resp_buffer) free(out.resp_buffer);
     margo_destroy(handle);
 }
