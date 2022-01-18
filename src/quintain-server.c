@@ -151,8 +151,13 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
 {
     margo_instance_id           mid = MARGO_INSTANCE_NULL;
     qtn_get_server_config_out_t out;
-    const struct hg_info*       info     = NULL;
-    quintain_provider_t         provider = NULL;
+    const struct hg_info*       info               = NULL;
+    quintain_provider_t         provider           = NULL;
+    char*                       margo_cfg_str      = NULL;
+    char*                       provider_cfg_str   = NULL;
+    int                         total_cfg_str_size = 0;
+    char                        margo_cfg_prefix[] = "\"margo (server)\" : ";
+    char provider_cfg_prefix[]                     = "\"quintain (server)\" : ";
 
     mid = margo_hg_handle_get_instance(handle);
     assert(mid);
@@ -166,14 +171,23 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
     /* note that this rpc doesn't have any input */
 
     memset(&out, 0, sizeof(out));
-    out.cfg_str = margo_get_config(mid);
+    margo_cfg_str    = margo_get_config(mid);
+    provider_cfg_str = quintain_provider_get_config(provider);
 
-    /* TODO: if this provider also has a json config, then retrieve it as
-     * well.  This doesn't yet exist.
-     */
+    total_cfg_str_size = strlen(margo_cfg_prefix) + strlen(margo_cfg_str)
+                       + strlen(provider_cfg_prefix) + strlen(provider_cfg_str)
+                       + 2;
+    out.cfg_str = malloc(total_cfg_str_size);
+    if (out.cfg_str)
+        sprintf(out.cfg_str, "%s%s\n%s%s", margo_cfg_prefix, margo_cfg_str,
+                provider_cfg_prefix, provider_cfg_str);
+    else
+        out.ret = QTN_ERR_ALLOCATION;
 
 finish:
     margo_respond(handle, &out);
+    if (margo_cfg_str) free(margo_cfg_str);
+    if (provider_cfg_str) free(provider_cfg_str);
     if (out.cfg_str) free(out.cfg_str);
     margo_destroy(handle);
 }

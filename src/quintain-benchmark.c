@@ -262,7 +262,7 @@ int main(int argc, char** argv)
         /* retrieve local configuration */
         cli_cfg_str = margo_get_config(mid);
 
-        gzprintf(f, "\"margo (server)\" : %s\n", svr_cfg_str);
+        gzprintf(f, "%s\n", svr_cfg_str);
         gzprintf(f, "\"margo (client)\" : %s\n", cli_cfg_str);
         gzprintf(f, "\"quintain-benchmark\" : %s\n",
                  json_object_to_json_string_ext(
