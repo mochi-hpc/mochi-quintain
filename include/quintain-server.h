@@ -63,6 +63,14 @@ int quintain_provider_register(margo_instance_id mid,
  */
 int quintain_provider_deregister(quintain_provider_t provider);
 
+/**
+ * Retrieves complete configuration of quintain provider, encoded as json
+ *
+ * @param [in] provider quintain provider
+ * @returns null terminated string that must be free'd by caller
+ */
+char* quintain_provider_get_config(quintain_provider_t provider);
+
 #ifdef __cplusplus
 }
 #endif

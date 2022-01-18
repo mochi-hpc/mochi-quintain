@@ -4,6 +4,8 @@
  * See COPYRIGHT in top-level directory.
  */
 
+#include "mochi-quintain-config.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <json-c/json.h>
@@ -13,10 +15,13 @@
 #include <quintain-server.h>
 
 #include "quintain-rpc.h"
+#include "quintain-macros.h"
 
 DECLARE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
 DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
 
+static int validate_and_complete_config(struct json_object* _config,
+                                        ABT_pool            _progress_pool);
 struct quintain_provider {
     margo_instance_id mid;
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider
@@ -45,6 +50,7 @@ int quintain_provider_register(margo_instance_id mid,
     struct quintain_provider*          tmp_provider = NULL;
     int                                ret;
     hg_id_t                            rpc_id;
+    struct json_object*                config = NULL;
 
     /* check if a provider with the same provider id already exists */
     {
@@ -61,6 +67,35 @@ int quintain_provider_register(margo_instance_id mid,
             ret = QTN_ERR_MERCURY;
             goto error;
         }
+    }
+
+    if (args.json_config && strlen(args.json_config) > 0) {
+        /* read JSON config from provided string argument */
+        struct json_tokener*    tokener = json_tokener_new();
+        enum json_tokener_error jerr;
+
+        config = json_tokener_parse_ex(tokener, args.json_config,
+                                       strlen(args.json_config));
+        if (!config) {
+            jerr = json_tokener_get_error(tokener);
+            QTN_ERROR(mid, "JSON parse error: %s",
+                      json_tokener_error_desc(jerr));
+            json_tokener_free(tokener);
+            ret = QTN_ERR_INVALID_ARG;
+            goto error;
+        }
+        json_tokener_free(tokener);
+    } else {
+        /* create default JSON config */
+        config = json_object_new_object();
+    }
+
+    /* validate and complete configuration */
+    ret = validate_and_complete_config(config, args.rpc_pool);
+    if (ret != 0) {
+        QTN_ERROR(mid, "could not validate and complete configuration");
+        ret = QTN_ERR_INVALID_ARG;
+        goto error;
     }
 
     /* allocate the resulting structure */
@@ -99,6 +134,7 @@ int quintain_provider_register(margo_instance_id mid,
 
 error:
 
+    if (config) json_object_put(config);
     if (tmp_provider) free(tmp_provider);
 
     return (ret);
@@ -202,3 +238,36 @@ finish:
     margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(qtn_work_ult)
+
+static int validate_and_complete_config(struct json_object* _config,
+                                        ABT_pool            _progress_pool)
+{
+    struct json_object* val;
+
+    /* report version number for this component */
+    CONFIG_OVERRIDE_STRING(_config, "version", PACKAGE_VERSION, "version", 1);
+
+    /* populate default poolset settings if not specified already */
+
+    /* poolset yes or no; implies intermediate buffering */
+    CONFIG_HAS_OR_CREATE(_config, boolean, "poolset_enable", 1, val);
+    /* number of preallocated buffer pools */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_npools", 4, val);
+    /* buffers per buffer pool */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_nbuffers_per_pool", 32, val);
+    /* size of buffers in smallest pool */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_first_buffer_size", 65536,
+                         val);
+    /* factor size increase per pool */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_multiplier", 4, val);
+
+    return (0);
+}
+
+char* quintain_provider_get_config(quintain_provider_t provider)
+{
+    const char* content = json_object_to_json_string_ext(
+        provider->json_cfg,
+        JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+    return strdup(content);
+}
