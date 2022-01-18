@@ -21,4 +21,4 @@ zcat $1 |grep sample_trace |grep -v elapsed |cut -f 5 > $1.latency.dat
 
 # all latencies, csv with start time
 echo "start,latency" > $1.latency-scatter.dat
-zcat $1 |grep sample_scatter |grep -v elapsed | awk '{print $3 "," $5}' >> $1.latency-scatter.dat
+zcat $1 |grep sample_trace |grep -v elapsed | awk '{print $3 "," $5}' >> $1.latency-scatter.dat
