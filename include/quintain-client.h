@@ -39,7 +39,8 @@ int quintain_work(quintain_provider_handle_t provider,
                   int                        resp_buffer_size,
                   hg_size_t                  bulk_size,
                   hg_bulk_op_t               bulk_op,
-                  void*                      bulk_buffer);
+                  void*                      bulk_buffer,
+                  int                        flags);
 
 #ifdef __cplusplus
 }

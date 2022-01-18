@@ -25,47 +25,11 @@
 #include <ssg.h>
 #include <quintain-client.h>
 
+#include "quintain-macros.h"
+
 /* record up to 32 million (power of 2) samples.  This will take 256 MiB of RAM
  * per rank */
 #define MAX_SAMPLES (32 * 1024 * 1024)
-
-// Overrides a field with an integer. If the field already existed and was
-// different from the new value, and __warning is true, prints a warning.
-#define CONFIG_OVERRIDE_INTEGER(__config, __key, __value, __warning)          \
-    do {                                                                      \
-        struct json_object* _tmp = json_object_object_get(__config, __key);   \
-        if (_tmp && __warning) {                                              \
-            if (!json_object_is_type(_tmp, json_type_int))                    \
-                fprintf(stderr, "Overriding field \"%s\" with value %d",      \
-                        __key, (int)__value);                                 \
-            else if (json_object_get_int(_tmp) != __value)                    \
-                fprintf(stderr, "Overriding field \"%s\" (%d) with value %d", \
-                        __key, json_object_get_int(_tmp), __value);           \
-        }                                                                     \
-        json_object_object_add(__config, __key,                               \
-                               json_object_new_int64(__value));               \
-    } while (0)
-
-// Checks if a JSON object has a particular key and its value is of the
-// specified type (not array or object or null). If the field does not exist,
-// creates it with the provided value.. If the field exists but is not of type
-// object, prints an error and return -1. After a call to this macro, __out is
-// set to the ceated/found field.
-#define CONFIG_HAS_OR_CREATE(__config, __type, __key, __value, __out)    \
-    do {                                                                 \
-        __out = json_object_object_get(__config, __key);                 \
-        if (__out && !json_object_is_type(__out, json_type_##__type)) {  \
-            fprintf(stderr,                                              \
-                    "\"%s\" in configuration but has an incorrect type " \
-                    "(expected %s)",                                     \
-                    __key, #__type);                                     \
-            return -1;                                                   \
-        }                                                                \
-        if (!__out) {                                                    \
-            __out = json_object_new_##__type(__value);                   \
-            json_object_object_add(__config, __key, __out);              \
-        }                                                                \
-    } while (0)
 
 struct options {
     char group_file[256];
@@ -117,6 +81,7 @@ int main(int argc, char** argv)
     struct sample_statistics stats      = {0};
     ssg_member_id_t          svr_id;
     void*                    bulk_buffer = NULL;
+    int                      work_flags  = 0;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -204,6 +169,9 @@ int main(int argc, char** argv)
         json_object_object_get(json_cfg, "warmup_iterations"));
     trace_flag
         = json_object_get_boolean(json_object_object_get(json_cfg, "trace"));
+    if (json_object_get_boolean(
+            json_object_object_get(json_cfg, "use_server_poolset")))
+        work_flags |= QTN_WORK_USE_SERVER_POOLSET;
     bulk_size
         = json_object_get_int(json_object_object_get(json_cfg, "bulk_size"));
     if (strcmp("pull", json_object_get_string(
@@ -247,7 +215,7 @@ int main(int argc, char** argv)
     /* run warm up iterations, if specified */
     for (i = 0; i < warmup_iterations; i++) {
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size, bulk_size,
-                            bulk_op, bulk_buffer);
+                            bulk_op, bulk_buffer, work_flags);
         if (ret != QTN_SUCCESS) {
             fprintf(stderr, "Error: quintain_work() failure.\n");
             goto err_qtn_cleanup;
@@ -262,7 +230,7 @@ int main(int argc, char** argv)
 
     do {
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size, bulk_size,
-                            bulk_op, bulk_buffer);
+                            bulk_op, bulk_buffer, work_flags);
         if (ret != QTN_SUCCESS) {
             fprintf(stderr, "Error: quintain_work() failure.\n");
             goto err_qtn_cleanup;
@@ -298,7 +266,7 @@ int main(int argc, char** argv)
         /* retrieve local configuration */
         cli_cfg_str = margo_get_config(mid);
 
-        gzprintf(f, "\"margo (server)\" : %s\n", svr_cfg_str);
+        gzprintf(f, "%s\n", svr_cfg_str);
         gzprintf(f, "\"margo (client)\" : %s\n", cli_cfg_str);
         gzprintf(f, "\"quintain-benchmark\" : %s\n",
                  json_object_to_json_string_ext(
@@ -463,6 +431,7 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "bulk_size", 16384, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, string, "bulk_direction", "pull", val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "warmup_iterations", 10, val);
+    CONFIG_HAS_OR_CREATE(*json_cfg, boolean, "use_server_poolset", 1, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, boolean, "trace", 1, val);
 
     return (0);

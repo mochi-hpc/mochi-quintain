@@ -48,11 +48,7 @@ static int quintain_deregister_provider(bedrock_module_provider_t provider)
 
 static char* quintain_get_provider_config(bedrock_module_provider_t provider)
 {
-#if 0
     return (quintain_provider_get_config(provider));
-#else
-    return strdup("{}");
-#endif
 }
 
 static int quintain_init_client(bedrock_args_t           args,

@@ -4,22 +4,31 @@
  * See COPYRIGHT in top-level directory.
  */
 
+#include "mochi-quintain-config.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <json-c/json.h>
 #include <assert.h>
 
 #include <margo.h>
+#include <margo-bulk-pool.h>
 #include <quintain-server.h>
 
 #include "quintain-rpc.h"
+#include "quintain-macros.h"
 
 DECLARE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
 DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
 
+static int validate_and_complete_config(struct json_object* _config,
+                                        ABT_pool            _progress_pool);
+static int setup_poolset(quintain_provider_t provider);
+
 struct quintain_provider {
     margo_instance_id mid;
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider
+    margo_bulk_poolset_t poolset; /* intermediate buffers, if used */
 
     hg_id_t qtn_get_server_config_rpc_id;
     hg_id_t qtn_work_rpc_id;
@@ -32,6 +41,7 @@ static void quintain_server_finalize_cb(void* data)
     struct quintain_provider* provider = (struct quintain_provider*)data;
     assert(provider);
 
+    if (provider->poolset) margo_bulk_poolset_destroy(provider->poolset);
     free(provider);
     return;
 }
@@ -45,6 +55,7 @@ int quintain_provider_register(margo_instance_id mid,
     struct quintain_provider*          tmp_provider = NULL;
     int                                ret;
     hg_id_t                            rpc_id;
+    struct json_object*                config = NULL;
 
     /* check if a provider with the same provider id already exists */
     {
@@ -63,18 +74,55 @@ int quintain_provider_register(margo_instance_id mid,
         }
     }
 
+    if (args.json_config && strlen(args.json_config) > 0) {
+        /* read JSON config from provided string argument */
+        struct json_tokener*    tokener = json_tokener_new();
+        enum json_tokener_error jerr;
+
+        config = json_tokener_parse_ex(tokener, args.json_config,
+                                       strlen(args.json_config));
+        if (!config) {
+            jerr = json_tokener_get_error(tokener);
+            QTN_ERROR(mid, "JSON parse error: %s",
+                      json_tokener_error_desc(jerr));
+            json_tokener_free(tokener);
+            ret = QTN_ERR_INVALID_ARG;
+            goto error;
+        }
+        json_tokener_free(tokener);
+    } else {
+        /* create default JSON config */
+        config = json_object_new_object();
+    }
+
+    /* validate and complete configuration */
+    ret = validate_and_complete_config(config, args.rpc_pool);
+    if (ret != 0) {
+        QTN_ERROR(mid, "could not validate and complete configuration");
+        ret = QTN_ERR_INVALID_ARG;
+        goto error;
+    }
+
     /* allocate the resulting structure */
     tmp_provider = calloc(1, sizeof(*tmp_provider));
     if (!tmp_provider) {
         ret = QTN_ERR_ALLOCATION;
         goto error;
     }
-    tmp_provider->mid = mid;
+    tmp_provider->json_cfg = config;
+    tmp_provider->mid      = mid;
 
     if (args.rpc_pool != NULL)
         tmp_provider->handler_pool = args.rpc_pool;
     else
         margo_get_handler_pool(mid, &(tmp_provider->handler_pool));
+
+    /* create buffer poolset if needed for config */
+    ret = setup_poolset(tmp_provider);
+    if (ret != 0) {
+        QTN_ERROR(mid, "could not create poolset");
+        goto error;
+    }
 
     /* register RPCs */
     rpc_id = MARGO_REGISTER_PROVIDER(
@@ -99,7 +147,12 @@ int quintain_provider_register(margo_instance_id mid,
 
 error:
 
-    if (tmp_provider) free(tmp_provider);
+    if (config) json_object_put(config);
+    if (tmp_provider) {
+        if (tmp_provider->poolset)
+            margo_bulk_poolset_destroy(tmp_provider->poolset);
+        free(tmp_provider);
+    }
 
     return (ret);
 }
@@ -115,8 +168,13 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
 {
     margo_instance_id           mid = MARGO_INSTANCE_NULL;
     qtn_get_server_config_out_t out;
-    const struct hg_info*       info     = NULL;
-    quintain_provider_t         provider = NULL;
+    const struct hg_info*       info               = NULL;
+    quintain_provider_t         provider           = NULL;
+    char*                       margo_cfg_str      = NULL;
+    char*                       provider_cfg_str   = NULL;
+    int                         total_cfg_str_size = 0;
+    char                        margo_cfg_prefix[] = "\"margo (server)\" : ";
+    char provider_cfg_prefix[]                     = "\"quintain (server)\" : ";
 
     mid = margo_hg_handle_get_instance(handle);
     assert(mid);
@@ -130,14 +188,23 @@ static void qtn_get_server_config_ult(hg_handle_t handle)
     /* note that this rpc doesn't have any input */
 
     memset(&out, 0, sizeof(out));
-    out.cfg_str = margo_get_config(mid);
+    margo_cfg_str    = margo_get_config(mid);
+    provider_cfg_str = quintain_provider_get_config(provider);
 
-    /* TODO: if this provider also has a json config, then retrieve it as
-     * well.  This doesn't yet exist.
-     */
+    total_cfg_str_size = strlen(margo_cfg_prefix) + strlen(margo_cfg_str)
+                       + strlen(provider_cfg_prefix) + strlen(provider_cfg_str)
+                       + 2;
+    out.cfg_str = malloc(total_cfg_str_size);
+    if (out.cfg_str)
+        sprintf(out.cfg_str, "%s%s\n%s%s", margo_cfg_prefix, margo_cfg_str,
+                provider_cfg_prefix, provider_cfg_str);
+    else
+        out.ret = QTN_ERR_ALLOCATION;
 
 finish:
     margo_respond(handle, &out);
+    if (margo_cfg_str) free(margo_cfg_str);
+    if (provider_cfg_str) free(provider_cfg_str);
     if (out.cfg_str) free(out.cfg_str);
     margo_destroy(handle);
 }
@@ -179,20 +246,33 @@ static void qtn_work_ult(hg_handle_t handle)
         out.resp_buffer = NULL;
 
     if (in.bulk_size) {
-        bulk_buffer = malloc(in.bulk_size);
-        if (!bulk_buffer) {
-            out.ret = QTN_ERR_ALLOCATION;
-            goto finish;
+        /* we were asked to perform a bulk transfer */
+        if (in.flags & QTN_WORK_USE_SERVER_POOLSET) {
+            /* get buffer from poolset */
+            out.ret = margo_bulk_poolset_get(provider->poolset, in.bulk_size,
+                                             &bulk_handle);
+            if (out.ret != 0) {
+                out.ret = QTN_ERR_ALLOCATION;
+                goto finish;
+            }
+        } else {
+            /* allocate buffer and register */
+            bulk_buffer = malloc(in.bulk_size);
+            if (!bulk_buffer) {
+                out.ret = QTN_ERR_ALLOCATION;
+                goto finish;
+            }
+            if (in.bulk_op == HG_BULK_PUSH) bulk_flag = HG_BULK_READ_ONLY;
+            out.ret = margo_bulk_create(mid, 1, (void**)(&bulk_buffer),
+                                        &in.bulk_size, bulk_flag, &bulk_handle);
+            if (out.ret != HG_SUCCESS) goto finish;
         }
-        if (in.bulk_op == HG_BULK_PUSH) bulk_flag = HG_BULK_READ_ONLY;
-        out.ret = margo_bulk_create(mid, 1, (void**)(&bulk_buffer),
-                                    &in.bulk_size, bulk_flag, &bulk_handle);
-        if (out.ret != HG_SUCCESS) goto finish;
-    }
 
-    /* transfer */
-    out.ret = margo_bulk_transfer(mid, in.bulk_op, info->addr, in.bulk_handle,
+        /* transfer */
+        out.ret
+            = margo_bulk_transfer(mid, in.bulk_op, info->addr, in.bulk_handle,
                                   0, bulk_handle, 0, in.bulk_size);
+    }
 
 finish:
     margo_respond(handle, &out);
@@ -202,3 +282,74 @@ finish:
     margo_destroy(handle);
 }
 DEFINE_MARGO_RPC_HANDLER(qtn_work_ult)
+
+static int validate_and_complete_config(struct json_object* _config,
+                                        ABT_pool            _progress_pool)
+{
+    struct json_object* val;
+
+    /* report version number for this component */
+    CONFIG_OVERRIDE_STRING(_config, "version", PACKAGE_VERSION, "version", 1);
+
+    /* populate default poolset settings if not specified already */
+
+    /* poolset yes or no; implies intermediate buffering */
+    CONFIG_HAS_OR_CREATE(_config, boolean, "poolset_enable", 1, val);
+    /* number of preallocated buffer pools */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_npools", 4, val);
+    /* buffers per buffer pool */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_nbuffers_per_pool", 32, val);
+    /* size of buffers in smallest pool */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_first_buffer_size", 65536,
+                         val);
+    /* factor size increase per pool */
+    CONFIG_HAS_OR_CREATE(_config, int64, "poolset_multiplier", 4, val);
+
+    return (0);
+}
+
+char* quintain_provider_get_config(quintain_provider_t provider)
+{
+    const char* content = json_object_to_json_string_ext(
+        provider->json_cfg,
+        JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
+    return strdup(content);
+}
+
+static int setup_poolset(quintain_provider_t provider)
+{
+    hg_return_t hret;
+
+    /* NOTE: this is called after validate, so we don't need extensive error
+     * checking on the json here
+     */
+
+    /* create poolset if we don't have one yet */
+    if (provider->poolset == NULL
+        && json_object_get_boolean(
+            json_object_object_get(provider->json_cfg, "poolset_enable"))) {
+        hret = margo_bulk_poolset_create(
+            provider->mid,
+            json_object_get_int(
+                json_object_object_get(provider->json_cfg, "poolset_npools")),
+            json_object_get_int(json_object_object_get(
+                provider->json_cfg, "poolset_nbuffers_per_pool")),
+            json_object_get_int(json_object_object_get(
+                provider->json_cfg, "poolset_first_buffer_size")),
+            json_object_get_int(json_object_object_get(provider->json_cfg,
+                                                       "poolset_multiplier")),
+            HG_BULK_READWRITE, &(provider->poolset));
+        if (hret != 0) return QTN_ERR_MERCURY;
+    }
+
+    /* destroy poolset if we have one but it has been disabled */
+    if (provider->poolset
+        && !json_object_get_boolean(
+            json_object_object_get(provider->json_cfg, "poolset_enable"))) {
+        hret = margo_bulk_poolset_destroy(provider->poolset);
+        if (hret != 0) return QTN_ERR_MERCURY;
+    }
+
+    /* otherwise nothing to do here */
+    return QTN_SUCCESS;
+}
