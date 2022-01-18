@@ -156,13 +156,17 @@ finish:
 
 int quintain_work(quintain_provider_handle_t provider,
                   int                        req_buffer_size,
-                  int                        resp_buffer_size)
+                  int                        resp_buffer_size,
+                  hg_size_t                  bulk_size,
+                  hg_bulk_op_t               bulk_op,
+                  void*                      bulk_buffer)
 {
     hg_handle_t    handle = HG_HANDLE_NULL;
     qtn_work_in_t  in;
     qtn_work_out_t out;
     int            ret = 0;
     hg_return_t    hret;
+    int            bulk_flags = HG_BULK_READ_ONLY;
 
     hret = margo_create(provider->client->mid, provider->addr,
                         provider->client->qtn_work_rpc_id, &handle);
@@ -171,12 +175,25 @@ int quintain_work(quintain_provider_handle_t provider,
         goto finish;
     }
 
+    in.bulk_op = bulk_op;
+    if (bulk_op == HG_BULK_PUSH) bulk_flags = HG_BULK_WRITE_ONLY;
+    in.bulk_handle      = HG_BULK_NULL;
     in.resp_buffer_size = resp_buffer_size;
     in.req_buffer_size  = req_buffer_size;
     if (req_buffer_size)
         in.req_buffer = calloc(1, req_buffer_size);
     else
         in.req_buffer = NULL;
+    if (bulk_size) {
+        hret = margo_bulk_create(provider->client->mid, 1,
+                                 (void**)(&bulk_buffer), &bulk_size, bulk_flags,
+                                 &in.bulk_handle);
+        if (hret != HG_SUCCESS) {
+            ret = QTN_ERR_MERCURY;
+            goto finish;
+        }
+    }
+
     hret = margo_provider_forward(provider->provider_id, handle, &in);
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
@@ -193,6 +210,7 @@ int quintain_work(quintain_provider_handle_t provider,
 
 finish:
 
+    if (in.bulk_handle != HG_BULK_NULL) margo_bulk_free(in.bulk_handle);
     if (in.req_buffer) free(in.req_buffer);
     if (hret == HG_SUCCESS) margo_free_output(handle, &out);
     if (handle != HG_HANDLE_NULL) margo_destroy(handle);
