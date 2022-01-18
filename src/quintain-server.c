@@ -104,7 +104,8 @@ int quintain_provider_register(margo_instance_id mid,
         ret = QTN_ERR_ALLOCATION;
         goto error;
     }
-    tmp_provider->mid = mid;
+    tmp_provider->json_cfg = config;
+    tmp_provider->mid      = mid;
 
     if (args.rpc_pool != NULL)
         tmp_provider->handler_pool = args.rpc_pool;
