@@ -4,7 +4,10 @@
     "ssg": {
         "name" : "quintain",
         "bootstrap" : "init",
-        "group_file" : "./quintain.ssg"
+        "group_file" : "./quintain.ssg",
+        "swim": {
+                    "disabled": true
+                }
     },
     "libraries" : {
         "quintain" : "libquintain-bedrock.so"
