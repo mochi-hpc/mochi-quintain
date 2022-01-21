@@ -1,0 +1,64 @@
+{
+    "margo" : {
+        "argobots": {
+            "pools" : [
+                {
+                    "name" : "quintain_rpcs",
+                    "kind" : "fifo_wait",
+                    "access" : "mpmc"
+                }
+            ],
+            "xstreams" : [
+                {
+                    "name" : "rpc1",
+                    "scheduler" : {
+                        "type" : "basic_wait",
+                        "pools" : [ "quintain_rpcs" ]
+                    }
+                },
+                {
+                    "name" : "rpc2",
+                    "scheduler" : {
+                        "type" : "basic_wait",
+                        "pools" : [ "quintain_rpcs" ]
+                    }
+                },
+                {
+                    "name" : "rpc3",
+                    "scheduler" : {
+                        "type" : "basic_wait",
+                        "pools" : [ "quintain_rpcs" ]
+                    }
+                },
+                {
+                    "name" : "rpc4",
+                    "scheduler" : {
+                        "type" : "basic_wait",
+                        "pools" : [ "quintain_rpcs" ]
+                    }
+                }
+            ]
+        }
+    },
+    "ssg": {
+        "name" : "quintain",
+        "bootstrap" : "init",
+        "group_file" : "./quintain.ssg",
+        "swim": {
+                    "disabled": true
+                }
+    },
+    "libraries" : {
+        "quintain" : "libquintain-bedrock.so"
+    },
+    "providers" : [
+        {
+            "name" : "my_quintain_provider",
+            "type" : "quintain",
+            "provider_id" : 1,
+            "pool" : "quintain_rpcs",
+            "config" : {
+            }
+        }
+    ]
+}
