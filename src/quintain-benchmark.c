@@ -205,11 +205,13 @@ int main(int argc, char** argv)
      * calls.  Note that we do not expliclitly register it for RDMA here;
      * that will be handled within the _work() call as needed.
      */
-    bulk_buffer = malloc(bulk_size);
-    if (!bulk_buffer) {
-        perror("malloc");
-        ret = -1;
-        goto err_qtn_cleanup;
+    if (bulk_size > 0) {
+        bulk_buffer = malloc(bulk_size);
+        if (!bulk_buffer) {
+            perror("malloc");
+            ret = -1;
+            goto err_qtn_cleanup;
+        }
     }
 
     /* run warm up iterations, if specified */
