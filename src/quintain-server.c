@@ -276,6 +276,7 @@ static void qtn_work_ult(hg_handle_t handle)
 
 finish:
     margo_respond(handle, &out);
+    margo_free_input(handle, &in);
     if (bulk_handle != HG_BULK_NULL) margo_bulk_free(bulk_handle);
     if (bulk_buffer != NULL) free(bulk_buffer);
     if (out.resp_buffer) free(out.resp_buffer);
