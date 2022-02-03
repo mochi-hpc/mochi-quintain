@@ -219,7 +219,7 @@ int main(int argc, char** argv)
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size, bulk_size,
                             bulk_op, bulk_buffer, work_flags);
         if (ret != QTN_SUCCESS) {
-            fprintf(stderr, "Error: quintain_work() failure.\n");
+            fprintf(stderr, "Error: quintain_work() failure: (%d)\n", ret);
             goto err_qtn_cleanup;
         }
     }

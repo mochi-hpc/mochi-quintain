@@ -230,12 +230,14 @@ static void qtn_work_ult(hg_handle_t handle)
     provider = margo_registered_data(mid, info->id);
     if (!provider) {
         out.ret = QTN_ERR_UNKNOWN_PROVIDER;
+        QTN_ERROR(mid, "Unkown provider");
         goto finish;
     }
 
     hret = margo_get_input(handle, &in);
     if (hret != HG_SUCCESS) {
         out.ret = QTN_ERR_MERCURY;
+        QTN_ERROR(mid, "margo_get_input: %s", HG_Error_to_string(hret));
         goto finish;
     }
 
@@ -253,6 +255,8 @@ static void qtn_work_ult(hg_handle_t handle)
                                              &bulk_handle);
             if (out.ret != 0) {
                 out.ret = QTN_ERR_ALLOCATION;
+                QTN_ERROR(mid, "margo_bulk_poolset_get: %s",
+                          HG_Error_to_string(hret));
                 goto finish;
             }
         } else {
@@ -265,13 +269,20 @@ static void qtn_work_ult(hg_handle_t handle)
             if (in.bulk_op == HG_BULK_PUSH) bulk_flag = HG_BULK_READ_ONLY;
             out.ret = margo_bulk_create(mid, 1, (void**)(&bulk_buffer),
                                         &in.bulk_size, bulk_flag, &bulk_handle);
-            if (out.ret != HG_SUCCESS) goto finish;
+            if (out.ret != HG_SUCCESS) {
+                QTN_ERROR(mid, "margo_bulk_poolset_get: %s",
+                          HG_Error_to_string(hret));
+                goto finish;
+            }
         }
 
         /* transfer */
         out.ret
             = margo_bulk_transfer(mid, in.bulk_op, info->addr, in.bulk_handle,
                                   0, bulk_handle, 0, in.bulk_size);
+    }
+    if (out.ret != HG_SUCCESS) {
+        QTN_ERROR(mid, "margo_bulk_transfer: %s", HG_Error_to_string(out.ret));
     }
 
 finish:

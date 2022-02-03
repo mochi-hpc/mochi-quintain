@@ -125,18 +125,24 @@ int quintain_get_server_config(quintain_provider_handle_t provider,
 
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_create: %s",
+                  HG_Error_to_string(hret));
         goto finish;
     }
 
     hret = margo_provider_forward(provider->provider_id, handle, NULL);
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_provider_forward: %s",
+                  HG_Error_to_string(hret));
         goto finish;
     }
 
     hret = margo_get_output(handle, &out);
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_get_output: %s",
+                  HG_Error_to_string(hret));
         goto finish;
     }
 
@@ -192,6 +198,8 @@ int quintain_work(quintain_provider_handle_t provider,
                                  &in.bulk_handle);
         if (hret != HG_SUCCESS) {
             ret = QTN_ERR_MERCURY;
+            QTN_ERROR(provider->client->mid, "margo_bulk_create: %s",
+                      HG_Error_to_string(hret));
             goto finish;
         }
     }
@@ -199,12 +207,16 @@ int quintain_work(quintain_provider_handle_t provider,
     hret = margo_provider_forward(provider->provider_id, handle, &in);
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_provider_forward: %s",
+                  HG_Error_to_string(hret));
         goto finish;
     }
 
     hret = margo_get_output(handle, &out);
     if (hret != HG_SUCCESS) {
         ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_get_output: %s",
+                  HG_Error_to_string(hret));
         goto finish;
     }
 
