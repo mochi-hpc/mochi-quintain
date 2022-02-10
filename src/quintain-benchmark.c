@@ -125,6 +125,16 @@ int main(int argc, char** argv)
         goto err_ssg_cleanup;
     }
 
+    /* refresh view of servers */
+    ret = ssg_group_refresh(mid, gid);
+    if (ret != SSG_SUCCESS) {
+        fprintf(stderr, "Error: ssg_group_refresh(): %s.\n", ssg_strerror(ret));
+        goto err_ssg_cleanup;
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if (my_rank == 0)
+        printf("# SSG group refreshed; proceeding with benchmark.\n");
+
     /* get addr for rank 0 in ssg group */
     ret = ssg_get_group_member_id_from_rank(gid, 0, &svr_id);
     if (ret != SSG_SUCCESS) {
