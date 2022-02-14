@@ -32,9 +32,11 @@
 #define MAX_SAMPLES (32 * 1024 * 1024)
 
 struct options {
-    char group_file[256];
-    char json_file[256];
-    char output_file[256];
+    char  group_file[256];
+    char  json_file[256];
+    char  margo_json_file[256];
+    char* margo_json_buf;
+    char  output_file[256];
 };
 
 struct sample_statistics {
@@ -82,6 +84,7 @@ int main(int argc, char** argv)
     ssg_member_id_t          svr_id;
     void*                    bulk_buffer = NULL;
     int                      work_flags  = 0;
+    struct margo_init_info   mii         = {0};
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -103,12 +106,18 @@ int main(int argc, char** argv)
         goto err_mpi_cleanup;
     }
 
-    mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
+    mii.json_config = opts.margo_json_buf;
+    mid             = margo_init_ext(proto, MARGO_CLIENT_MODE, &mii);
     if (!mid) {
         fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
                 proto);
         ret = -1;
         goto err_mpi_cleanup;
+    }
+
+    if (opts.margo_json_buf) {
+        free(opts.margo_json_buf);
+        opts.margo_json_buf = NULL;
     }
 
     ret = ssg_init();
@@ -454,12 +463,14 @@ static int parse_args(int                  argc,
                       struct options*      opts,
                       struct json_object** json_cfg)
 {
-    int opt;
-    int ret;
+    int         opt;
+    int         ret;
+    struct stat statbuf;
+    int         fd;
 
     memset(opts, 0, sizeof(*opts));
 
-    while ((opt = getopt(argc, argv, "g:j:o:")) != -1) {
+    while ((opt = getopt(argc, argv, "g:j:o:J:")) != -1) {
         switch (opt) {
         case 'g':
             ret = sscanf(optarg, "%s", opts->group_file);
@@ -467,6 +478,10 @@ static int parse_args(int                  argc,
             break;
         case 'j':
             ret = sscanf(optarg, "%s", opts->json_file);
+            if (ret != 1) return (-1);
+            break;
+        case 'J':
+            ret = sscanf(optarg, "%s", opts->margo_json_file);
             if (ret != 1) return (-1);
             break;
         case 'o':
@@ -489,6 +504,33 @@ static int parse_args(int                  argc,
         strcat(opts->output_file, ".gz");
     }
 
+    /* if a margo json file was provided, load it into memory */
+    if (strlen(opts->margo_json_file) > 0) {
+        ret = stat(opts->margo_json_file, &statbuf);
+        if (ret != 0) {
+            perror("stat");
+            fprintf(stderr, "Error: cannot stat %s\n", opts->margo_json_file);
+            return (-1);
+        }
+        opts->margo_json_buf = malloc(statbuf.st_size);
+        if (!opts->margo_json_buf) {
+            perror("malloc");
+            return (-1);
+        }
+        fd = open(opts->margo_json_file, O_RDONLY);
+        if (fd < 0) {
+            perror("open");
+            fprintf(stderr, "Error: cannot open %s\n", opts->margo_json_file);
+            return (-1);
+        }
+        ret = read(fd, opts->margo_json_buf, statbuf.st_size);
+        if (ret != statbuf.st_size) {
+            fprintf(stderr, "Error: cannot read %s\n", opts->margo_json_file);
+            return (-1);
+        }
+        close(fd);
+    }
+
     return (parse_json(opts->json_file, json_cfg));
 }
 
@@ -496,7 +538,8 @@ static void usage(void)
 {
     fprintf(stderr,
             "Usage: "
-            "quintain-benchmark -g <group_file> -j <configuration json> -o "
+            "quintain-benchmark -g <group_file> -j <benchmark json> -J <margo "
+            "json> -o "
             "<output file>\n");
     return;
 }
