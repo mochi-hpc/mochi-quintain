@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <json-c/json.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include <margo.h>
 #include <margo-bulk-pool.h>
@@ -299,6 +300,7 @@ static int validate_and_complete_config(struct json_object* _config,
                                         ABT_pool            _progress_pool)
 {
     struct json_object* val;
+    long                page_size;
 
     /* report version number for this component */
     CONFIG_OVERRIDE_STRING(_config, "version", PACKAGE_VERSION, "version", 1);
@@ -316,6 +318,12 @@ static int validate_and_complete_config(struct json_object* _config,
                          val);
     /* factor size increase per pool */
     CONFIG_HAS_OR_CREATE(_config, int64, "poolset_multiplier", 4, val);
+
+    /* retrieve system page size (this can only be queried, not set by
+     * caller
+     */
+    page_size = sysconf(_SC_PAGESIZE);
+    CONFIG_OVERRIDE_INTEGER(_config, "page_size", (int)page_size, 1);
 
     return (0);
 }
