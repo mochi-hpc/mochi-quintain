@@ -80,8 +80,10 @@ int main(int argc, char** argv)
     int                      trace_flag = 0;
     struct sample_statistics stats      = {0};
     ssg_member_id_t          svr_id;
-    void*                    bulk_buffer = NULL;
-    int                      work_flags  = 0;
+    void*                    bulk_buffer  = NULL;
+    int                      work_flags   = 0;
+    struct margo_init_info   mii          = {0};
+    struct json_object*      margo_config = NULL;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -103,7 +105,14 @@ int main(int argc, char** argv)
         goto err_mpi_cleanup;
     }
 
-    mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
+    /* If there is a "margo" section in the json configuration, then
+     * serialize it into a string to pass to margo_init_ext().
+     */
+    margo_config = json_object_object_get(json_cfg, "margo");
+    if (margo_config)
+        mii.json_config = json_object_to_json_string_ext(
+            margo_config, JSON_C_TO_STRING_PLAIN);
+    mid = margo_init_ext(proto, MARGO_CLIENT_MODE, &mii);
     if (!mid) {
         fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
                 proto);
