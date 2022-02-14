@@ -80,8 +80,10 @@ int main(int argc, char** argv)
     int                      trace_flag = 0;
     struct sample_statistics stats      = {0};
     ssg_member_id_t          svr_id;
-    void*                    bulk_buffer = NULL;
-    int                      work_flags  = 0;
+    void*                    bulk_buffer  = NULL;
+    int                      work_flags   = 0;
+    struct margo_init_info   mii          = {0};
+    struct json_object*      margo_config = NULL;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -103,7 +105,14 @@ int main(int argc, char** argv)
         goto err_mpi_cleanup;
     }
 
-    mid = margo_init(proto, MARGO_CLIENT_MODE, 0, 0);
+    /* If there is a "margo" section in the json configuration, then
+     * serialize it into a string to pass to margo_init_ext().
+     */
+    margo_config = json_object_object_get(json_cfg, "margo");
+    if (margo_config)
+        mii.json_config = json_object_to_json_string_ext(
+            margo_config, JSON_C_TO_STRING_PLAIN);
+    mid = margo_init_ext(proto, MARGO_CLIENT_MODE, &mii);
     if (!mid) {
         fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
                 proto);
@@ -268,6 +277,9 @@ int main(int argc, char** argv)
 
     /* have rank 0 in benchmark report configuration */
     if (my_rank == 0) {
+        struct json_tokener*    tokener;
+        enum json_tokener_error jerr;
+
         /* retrieve configuration from provider */
         ret = quintain_get_server_config(qph, &svr_cfg_str);
         if (ret != QTN_SUCCESS) {
@@ -275,11 +287,27 @@ int main(int argc, char** argv)
             goto err_qtn_cleanup;
         }
 
-        /* retrieve local configuration */
+        /* retrieve local margo configuration */
         cli_cfg_str = margo_get_config(mid);
 
+        /* parse margo config and injected into the benchmark config */
+        tokener = json_tokener_new();
+        margo_config
+            = json_tokener_parse_ex(tokener, cli_cfg_str, strlen(cli_cfg_str));
+        if (!margo_config) {
+            jerr = json_tokener_get_error(tokener);
+            fprintf(stderr, "JSON parse error: %s",
+                    json_tokener_error_desc(jerr));
+            json_tokener_free(tokener);
+            return -1;
+        }
+        json_tokener_free(tokener);
+        /* delete existing margo object, if present */
+        json_object_object_del(json_cfg, "margo");
+        /* add new one, derived at run time */
+        json_object_object_add(json_cfg, "margo", margo_config);
+
         gzprintf(f, "%s\n", svr_cfg_str);
-        gzprintf(f, "\"margo (client)\" : %s\n", cli_cfg_str);
         gzprintf(f, "\"quintain-benchmark\" : %s\n",
                  json_object_to_json_string_ext(
                      json_cfg,

@@ -1,1 +1,7 @@
-{ }
+{
+    "margo": {
+        "mercury": {
+            "auto_sm":true
+        }
+    }
+}
