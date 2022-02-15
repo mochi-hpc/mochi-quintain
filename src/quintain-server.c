@@ -42,7 +42,13 @@ static void quintain_server_finalize_cb(void* data)
     struct quintain_provider* provider = (struct quintain_provider*)data;
     assert(provider);
 
+    margo_deregister(provider->mid, provider->qtn_work_rpc_id);
+    margo_deregister(provider->mid, provider->qtn_get_server_config_rpc_id);
+
     if (provider->poolset) margo_bulk_poolset_destroy(provider->poolset);
+
+    if (provider->json_cfg) json_object_put(provider->json_cfg);
+
     free(provider);
     return;
 }
