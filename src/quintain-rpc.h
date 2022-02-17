@@ -38,18 +38,44 @@ static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p)
     qtn_work_in_t* in  = v_out_p;
     void*          buf = NULL;
 
+    /* these components are general, regardless of hg_proc_op_t */
     hg_proc_uint64_t(proc, &in->resp_buffer_size);
     hg_proc_uint64_t(proc, &in->req_buffer_size);
     hg_proc_uint64_t(proc, &in->bulk_size);
     hg_proc_uint32_t(proc, &in->bulk_op);
     hg_proc_hg_bulk_t(proc, &in->bulk_handle);
-    /* pack dummy data in request if requested */
-    if (in->req_buffer_size) {
-        buf = hg_proc_save_ptr(proc, in->req_buffer_size);
-        if (hg_proc_get_op(proc) == HG_ENCODE)
+
+    /* The remainder of the request contains the req_buffer; differentiate
+     * how we handle it depending on the hg_proc_op_t mode.
+     *
+     * NOTE: the req_buffer and req_buffer_size are used to synthetically
+     * vary the request size to mimic different workloads.  We use raw
+     * memory for this purpose with no encoding.
+     */
+    switch (hg_proc_get_op(proc)) {
+    case HG_ENCODE:
+        if (in->req_buffer_size) {
+            /* get pointer to encoded buffer position and directly copy
+             * data into it
+             */
+            buf = hg_proc_save_ptr(proc, in->req_buffer_size);
             memcpy(buf, in->req_buffer, in->req_buffer_size);
-        if (hg_proc_get_op(proc) == HG_DECODE) in->req_buffer = buf;
-        hg_proc_restore_ptr(proc, buf, in->req_buffer_size);
+            hg_proc_restore_ptr(proc, buf, in->req_buffer_size);
+        }
+        break;
+    case HG_DECODE:
+        if (in->req_buffer_size) {
+            /* set decoded pointer to reference appropriate offset
+             * in encoded buffe
+             */
+            buf            = hg_proc_save_ptr(proc, in->req_buffer_size);
+            in->req_buffer = buf;
+            hg_proc_restore_ptr(proc, buf, in->req_buffer_size);
+        }
+        break;
+    case HG_FREE:
+        /* nothing to do here */
+        break;
     }
 
     return (HG_SUCCESS);
@@ -60,15 +86,42 @@ static inline hg_return_t hg_proc_qtn_work_out_t(hg_proc_t proc, void* v_out_p)
     qtn_work_out_t* out = v_out_p;
     void*           buf = NULL;
 
-    hg_proc_uint64_t(proc, &out->resp_buffer_size);
-    if (out->resp_buffer_size) {
-        buf = hg_proc_save_ptr(proc, out->resp_buffer_size);
-        if (hg_proc_get_op(proc) == HG_ENCODE)
-            memcpy(buf, out->resp_buffer, out->resp_buffer_size);
-        if (hg_proc_get_op(proc) == HG_DECODE) out->resp_buffer = buf;
-        hg_proc_restore_ptr(proc, buf, out->resp_buffer_size);
-    }
+    /* these components are general, regardless of hg_proc_op_t */
     hg_proc_uint32_t(proc, &out->ret);
+    hg_proc_uint64_t(proc, &out->resp_buffer_size);
+
+    /* The remainder of the response contains the resp_buffer; differentiate
+     * how we handle it depending on the hg_proc_op_t mode.
+     *
+     * NOTE: the resp_buffer and resp_buffer_size are used to synthetically
+     * vary the response size to mimic different workloads.  We use raw
+     * memory for this purpose with no encoding.
+     */
+    switch (hg_proc_get_op(proc)) {
+    case HG_ENCODE:
+        if (out->resp_buffer_size) {
+            /* get pointer to encoded buffer position and directly copy
+             * data into it
+             */
+            buf = hg_proc_save_ptr(proc, out->resp_buffer_size);
+            memcpy(buf, out->resp_buffer, out->resp_buffer_size);
+            hg_proc_restore_ptr(proc, buf, out->resp_buffer_size);
+        }
+        break;
+    case HG_DECODE:
+        if (out->resp_buffer_size) {
+            /* set decoded pointer to reference appropriate offset
+             * in encoded buffe
+             */
+            buf              = hg_proc_save_ptr(proc, out->resp_buffer_size);
+            out->resp_buffer = buf;
+            hg_proc_restore_ptr(proc, buf, out->resp_buffer_size);
+        }
+        break;
+    case HG_FREE:
+        /* nothing to do here */
+        break;
+    }
 
     return (HG_SUCCESS);
 }
