@@ -22,7 +22,7 @@ static const int json_type_int64 = json_type_int;
                         __key, (int)__value);                                 \
             else if (json_object_get_int(_tmp) != __value)                    \
                 fprintf(stderr, "Overriding field \"%s\" (%d) with value %d", \
-                        __key, json_object_get_int(_tmp), __value);           \
+                        __key, json_object_get_int(_tmp), (int)__value);      \
         }                                                                     \
         json_object_object_add(__config, __key,                               \
                                json_object_new_int64(__value));               \
