@@ -11,6 +11,8 @@
 #include <json-c/json.h>
 #include <assert.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include <margo.h>
 #include <margo-bulk-pool.h>
@@ -336,6 +338,21 @@ static int validate_and_complete_config(struct json_object* _config,
 
 char* quintain_provider_get_config(quintain_provider_t provider)
 {
+    struct rusage usage;
+    int           ret;
+
+    /* update maxrss on demand */
+    ret = getrusage(RUSAGE_SELF, &usage);
+    if (ret != 0) {
+        /* if we can't get the current rusage, then delete it from json if
+         * present so that we don't report an incorrect value.
+         */
+        json_object_object_del(provider->json_cfg, "ru_maxrss");
+    } else {
+        CONFIG_OVERRIDE_INTEGER(provider->json_cfg, "ru_maxrss",
+                                usage.ru_maxrss, 0);
+    }
+
     const char* content = json_object_to_json_string_ext(
         provider->json_cfg,
         JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE);
