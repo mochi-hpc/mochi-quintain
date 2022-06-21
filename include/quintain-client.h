@@ -31,9 +31,6 @@ int quintain_provider_handle_create(quintain_client_t           client,
 
 int quintain_provider_handle_release(quintain_provider_handle_t handle);
 
-int quintain_get_server_config(quintain_provider_handle_t provider,
-                               char**                     config);
-
 int quintain_work(quintain_provider_handle_t provider,
                   int                        req_buffer_size,
                   int                        resp_buffer_size,

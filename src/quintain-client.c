@@ -14,7 +14,6 @@
 struct quintain_client {
     margo_instance_id mid;
 
-    hg_id_t qtn_get_server_config_rpc_id;
     hg_id_t qtn_work_rpc_id;
 
     uint64_t num_provider_handles;
@@ -38,19 +37,12 @@ int quintain_client_init(margo_instance_id mid, quintain_client_t* client)
     c->num_provider_handles = 0;
     c->mid                  = mid;
 
-    margo_registered_name(mid, "qtn_get_server_config_rpc", &id,
-                          &already_registered_flag);
+    margo_registered_name(mid, "qtn_work_rpc", &id, &already_registered_flag);
 
     if (already_registered_flag == HG_TRUE) { /* RPCs already registered */
-        margo_registered_name(mid, "qtn_get_server_config_rpc",
-                              &c->qtn_get_server_config_rpc_id,
-                              &already_registered_flag);
         margo_registered_name(mid, "qtn_work_rpc", &c->qtn_work_rpc_id,
                               &already_registered_flag);
     } else { /* RPCs not already registered */
-        c->qtn_get_server_config_rpc_id
-            = MARGO_REGISTER(mid, "qtn_get_server_config_rpc", void,
-                             qtn_get_server_config_out_t, NULL);
         c->qtn_work_rpc_id = MARGO_REGISTER(mid, "qtn_work_rpc", qtn_work_in_t,
                                             qtn_work_out_t, NULL);
     }
@@ -109,55 +101,6 @@ int quintain_provider_handle_release(quintain_provider_handle_t handle)
         free(handle);
     }
     return QTN_SUCCESS;
-}
-
-int quintain_get_server_config(quintain_provider_handle_t provider,
-                               char**                     config)
-{
-    hg_handle_t                 handle = HG_HANDLE_NULL;
-    qtn_get_server_config_out_t out;
-    int                         ret = 0;
-    hg_return_t                 hret;
-
-    hret
-        = margo_create(provider->client->mid, provider->addr,
-                       provider->client->qtn_get_server_config_rpc_id, &handle);
-
-    if (hret != HG_SUCCESS) {
-        ret = QTN_ERR_MERCURY;
-        QTN_ERROR(provider->client->mid, "margo_create: %s",
-                  HG_Error_to_string(hret));
-        goto finish;
-    }
-
-    hret = margo_provider_forward(provider->provider_id, handle, NULL);
-    if (hret != HG_SUCCESS) {
-        ret = QTN_ERR_MERCURY;
-        QTN_ERROR(provider->client->mid, "margo_provider_forward: %s",
-                  HG_Error_to_string(hret));
-        goto finish;
-    }
-
-    hret = margo_get_output(handle, &out);
-    if (hret != HG_SUCCESS) {
-        ret = QTN_ERR_MERCURY;
-        QTN_ERROR(provider->client->mid, "margo_get_output: %s",
-                  HG_Error_to_string(hret));
-        goto finish;
-    }
-
-    ret = out.ret;
-    if (out.cfg_str)
-        *config = strdup(out.cfg_str);
-    else
-        *config = NULL;
-
-finish:
-
-    if (hret == HG_SUCCESS) margo_free_output(handle, &out);
-    if (handle != HG_HANDLE_NULL) margo_destroy(handle);
-
-    return (ret);
 }
 
 int quintain_work(quintain_provider_handle_t provider,

@@ -24,6 +24,7 @@
 #include <abt.h>
 #include <ssg.h>
 #include <quintain-client.h>
+#include <bedrock/service-handle.h>
 
 #include "quintain-macros.h"
 
@@ -58,14 +59,16 @@ int main(int argc, char** argv)
     int                        nranks, nproviders, my_rank;
     int                        ret;
     ssg_group_id_t             gid;
-    char*                      svr_addr_str = NULL;
-    char                       proto[64]    = {0};
-    char*                      svr_cfg_str  = NULL;
-    char*                      cli_cfg_str  = NULL;
-    margo_instance_id          mid          = MARGO_INSTANCE_NULL;
-    quintain_client_t          qcl          = QTN_CLIENT_NULL;
-    quintain_provider_handle_t qph          = QTN_PROVIDER_HANDLE_NULL;
-    hg_addr_t                  svr_addr     = HG_ADDR_NULL;
+    char*                      svr_addr_str    = NULL;
+    char                       proto[64]       = {0};
+    char*                      svr_cfg_str_raw = NULL;
+    char*                      cli_cfg_str     = NULL;
+    margo_instance_id          mid             = MARGO_INSTANCE_NULL;
+    quintain_client_t          qcl             = QTN_CLIENT_NULL;
+    quintain_provider_handle_t qph             = QTN_PROVIDER_HANDLE_NULL;
+    bedrock_client_t           bcl             = NULL;
+    bedrock_service_t          bsh             = NULL;
+    hg_addr_t                  svr_addr        = HG_ADDR_NULL;
     struct options             opts;
     struct json_object*        json_cfg;
     int req_buffer_size, resp_buffer_size, duration_seconds, warmup_iterations,
@@ -84,6 +87,7 @@ int main(int argc, char** argv)
     int                      work_flags   = 0;
     struct margo_init_info   mii          = {0};
     struct json_object*      margo_config = NULL;
+    struct json_object*      svr_config   = NULL;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -165,10 +169,22 @@ int main(int argc, char** argv)
         goto err_ssg_cleanup;
     }
 
+    ret = bedrock_client_init(mid, &bcl);
+    if (ret != BEDROCK_SUCCESS) {
+        fprintf(stderr, "Error: bedrock_client_init() failure.\n");
+        goto err_ssg_cleanup;
+    }
+
+    ret = bedrock_service_handle_create(bcl, svr_addr_str, 0, &bsh);
+    if (ret != BEDROCK_SUCCESS) {
+        fprintf(stderr, "Error: bedrock_service_handle_create() failure.\n");
+        goto err_br_cleanup;
+    }
+
     ret = quintain_client_init(mid, &qcl);
     if (ret != QTN_SUCCESS) {
         fprintf(stderr, "Error: quintain_client_init() failure.\n");
-        goto err_ssg_cleanup;
+        goto err_br_cleanup;
     }
 
     /* TODO: allow other provider_id values besides 1 */
@@ -281,11 +297,28 @@ int main(int argc, char** argv)
         enum json_tokener_error jerr;
 
         /* retrieve configuration from provider */
-        ret = quintain_get_server_config(qph, &svr_cfg_str);
-        if (ret != QTN_SUCCESS) {
-            fprintf(stderr, "Error: quintain_get_server_config() failure.\n");
+        svr_cfg_str_raw
+            = bedrock_service_query_config(bsh, "return $__config__;");
+        if (!svr_cfg_str_raw) {
+            fprintf(stderr, "Error: bedrock_service_query_config() failure.\n");
             goto err_qtn_cleanup;
         }
+
+        /* the string emitted by bedrock_service_query_config() is not
+         * formatted for human readability.  Parse it in json-c and emit it
+         * again with pretty options for better legibility.
+         */
+        tokener    = json_tokener_new();
+        svr_config = json_tokener_parse_ex(tokener, svr_cfg_str_raw,
+                                           strlen(svr_cfg_str_raw));
+        if (!svr_config) {
+            jerr = json_tokener_get_error(tokener);
+            fprintf(stderr, "JSON parse error: %s",
+                    json_tokener_error_desc(jerr));
+            json_tokener_free(tokener);
+            return -1;
+        }
+        json_tokener_free(tokener);
 
         /* retrieve local margo configuration */
         cli_cfg_str = margo_get_config(mid);
@@ -307,7 +340,10 @@ int main(int argc, char** argv)
         /* add new one, derived at run time */
         json_object_object_add(json_cfg, "margo", margo_config);
 
-        gzprintf(f, "%s\n", svr_cfg_str);
+        gzprintf(f, "\"quintain-provider\" : %s\n",
+                 json_object_to_json_string_ext(
+                     svr_config,
+                     JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
         gzprintf(f, "\"quintain-benchmark\" : %s\n",
                  json_object_to_json_string_ext(
                      json_cfg,
@@ -391,12 +427,15 @@ int main(int argc, char** argv)
 
 err_qtn_cleanup:
     if (bulk_buffer) free(bulk_buffer);
-    if (svr_cfg_str) free(svr_cfg_str);
+    if (svr_cfg_str_raw) free(svr_cfg_str_raw);
     if (cli_cfg_str) free(cli_cfg_str);
     if (f) gzclose(f);
     if (samples) munmap(samples, MAX_SAMPLES * sizeof(double));
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
     if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
+err_br_cleanup:
+    if (bsh != NULL) bedrock_service_handle_destroy(bsh);
+    if (bcl != NULL) bedrock_client_finalize(bcl);
 err_ssg_cleanup:
     if (svr_addr_str) free(svr_addr_str);
     ssg_finalize();
@@ -405,6 +444,7 @@ err_margo_cleanup:
     margo_finalize(mid);
 err_mpi_cleanup:
     if (json_cfg) json_object_put(json_cfg);
+    if (svr_config) json_object_put(svr_config);
     if (ret != 0)
         MPI_Abort(MPI_COMM_WORLD, -1);
     else
