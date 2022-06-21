@@ -21,7 +21,6 @@
 #include "quintain-rpc.h"
 #include "quintain-macros.h"
 
-DECLARE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
 DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
 
 static int validate_and_complete_config(struct json_object* _config,
@@ -33,7 +32,6 @@ struct quintain_provider {
     ABT_pool handler_pool; // pool used to run RPC handlers for this provider
     margo_bulk_poolset_t poolset; /* intermediate buffers, if used */
 
-    hg_id_t qtn_get_server_config_rpc_id;
     hg_id_t qtn_work_rpc_id;
 
     struct json_object* json_cfg;
@@ -45,7 +43,6 @@ static void quintain_server_finalize_cb(void* data)
     assert(provider);
 
     margo_deregister(provider->mid, provider->qtn_work_rpc_id);
-    margo_deregister(provider->mid, provider->qtn_get_server_config_rpc_id);
 
     if (provider->poolset) margo_bulk_poolset_destroy(provider->poolset);
 
@@ -70,8 +67,8 @@ int quintain_provider_register(margo_instance_id mid,
     {
         hg_id_t   id;
         hg_bool_t flag;
-        margo_provider_registered_name(mid, "quintain_get_server_config_rpc",
-                                       provider_id, &id, &flag);
+        margo_provider_registered_name(mid, "qtn_work_rpc", provider_id, &id,
+                                       &flag);
         if (flag == HG_TRUE) {
             QTN_ERROR(mid,
                       "quintain_provider_register(): a quintain provider with "
@@ -134,12 +131,6 @@ int quintain_provider_register(margo_instance_id mid,
     }
 
     /* register RPCs */
-    rpc_id = MARGO_REGISTER_PROVIDER(
-        mid, "qtn_get_server_config_rpc", void, qtn_get_server_config_out_t,
-        qtn_get_server_config_ult, provider_id, tmp_provider->handler_pool);
-    margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
-    tmp_provider->qtn_get_server_config_rpc_id = rpc_id;
-
     rpc_id = MARGO_REGISTER_PROVIDER(mid, "qtn_work_rpc", qtn_work_in_t,
                                      qtn_work_out_t, qtn_work_ult, provider_id,
                                      tmp_provider->handler_pool);
@@ -172,52 +163,6 @@ int quintain_provider_deregister(quintain_provider_t provider)
     quintain_server_finalize_cb(provider);
     return QTN_SUCCESS;
 }
-
-static void qtn_get_server_config_ult(hg_handle_t handle)
-{
-    margo_instance_id           mid = MARGO_INSTANCE_NULL;
-    qtn_get_server_config_out_t out;
-    const struct hg_info*       info               = NULL;
-    quintain_provider_t         provider           = NULL;
-    char*                       margo_cfg_str      = NULL;
-    char*                       provider_cfg_str   = NULL;
-    int                         total_cfg_str_size = 0;
-    char                        margo_cfg_prefix[] = "\"margo (server)\" : ";
-    char provider_cfg_prefix[]                     = "\"quintain (server)\" : ";
-
-    mid = margo_hg_handle_get_instance(handle);
-    assert(mid);
-    info     = margo_get_info(handle);
-    provider = margo_registered_data(mid, info->id);
-    if (!provider) {
-        out.ret = QTN_ERR_UNKNOWN_PROVIDER;
-        goto finish;
-    }
-
-    /* note that this rpc doesn't have any input */
-
-    memset(&out, 0, sizeof(out));
-    margo_cfg_str    = margo_get_config(mid);
-    provider_cfg_str = quintain_provider_get_config(provider);
-
-    total_cfg_str_size = strlen(margo_cfg_prefix) + strlen(margo_cfg_str)
-                       + strlen(provider_cfg_prefix) + strlen(provider_cfg_str)
-                       + 2;
-    out.cfg_str = malloc(total_cfg_str_size);
-    if (out.cfg_str)
-        sprintf(out.cfg_str, "%s%s\n%s%s", margo_cfg_prefix, margo_cfg_str,
-                provider_cfg_prefix, provider_cfg_str);
-    else
-        out.ret = QTN_ERR_ALLOCATION;
-
-finish:
-    margo_respond(handle, &out);
-    if (margo_cfg_str) free(margo_cfg_str);
-    if (provider_cfg_str) free(provider_cfg_str);
-    if (out.cfg_str) free(out.cfg_str);
-    margo_destroy(handle);
-}
-DEFINE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
 
 static void qtn_work_ult(hg_handle_t handle)
 {

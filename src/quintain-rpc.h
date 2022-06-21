@@ -11,9 +11,6 @@
 #include <mercury_proc_string.h>
 #include <quintain.h>
 
-MERCURY_GEN_PROC(qtn_get_server_config_out_t,
-                 ((int32_t)(ret))((hg_string_t)(cfg_str)))
-
 typedef struct {
     uint64_t
         resp_buffer_size; /* size of buffer provider should give in response */

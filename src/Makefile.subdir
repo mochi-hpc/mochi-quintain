@@ -11,5 +11,5 @@ dist_bin_SCRIPTS += src/quintain-benchmark-parse.sh
 
 if HAVE_MPI
 bin_PROGRAMS += src/quintain-benchmark
-src_quintain_benchmark_LDADD = src/libquintain-client.la
+src_quintain_benchmark_LDADD = src/libquintain-client.la -lbedrock-client
 endif

@@ -85,6 +85,18 @@ LIBS="$BEDROCK_LIBS $LIBS"
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
 
+# see if bedrock has a C API for retrieving configuration
+AC_MSG_CHECKING(for bedrock_service_query_config in Bedrock)
+AC_TRY_COMPILE([
+#include <bedrock/service-handle.h>
+], [
+char* foo = bedrock_service_query_config(NULL, "");
+],
+AC_MSG_RESULT(yes),
+AC_MSG_RESULT(no)
+AC_MSG_ERROR([This version of Bedrock does not support bedrock_service_query_config])
+)
+
 PKG_CHECK_MODULES([SSG], [ssg >= 0.5],[],
    [AC_MSG_ERROR([Could not find working SSG installationi v0.5 or higher])])
 LIBS="$SSG_LIBS $LIBS"
