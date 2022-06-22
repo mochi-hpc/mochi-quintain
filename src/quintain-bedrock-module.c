@@ -28,6 +28,7 @@ static int quintain_register_provider(bedrock_args_t             args,
     QTN_TRACE(mid, " -> name          = %s", name);
 
     bpargs.json_config = config;
+    bpargs.rpc_pool    = pool;
 
     ret = quintain_provider_register(mid, provider_id, &bpargs,
                                      (quintain_provider_t*)provider);
