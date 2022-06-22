@@ -13,6 +13,8 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <pthread.h>
+#include <assert.h>
 
 #include <margo.h>
 #include <margo-bulk-pool.h>
@@ -20,6 +22,14 @@
 
 #include "quintain-rpc.h"
 #include "quintain-macros.h"
+
+struct tid_histo_bin {
+    pthread_t     tid;
+    long unsigned count;
+};
+
+static struct tid_histo_bin tid_histo[64] = {0};
+static long unsigned        rpc_count     = 0;
 
 DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
 
@@ -175,6 +185,8 @@ static void qtn_work_ult(hg_handle_t handle)
     void*                 bulk_buffer = NULL;
     int                   bulk_flag   = HG_BULK_WRITE_ONLY;
     hg_bulk_t             bulk_handle = HG_BULK_NULL;
+    int                   i;
+    pthread_t             tid;
 
     memset(&out, 0, sizeof(out));
 
@@ -237,6 +249,21 @@ static void qtn_work_ult(hg_handle_t handle)
     }
     if (out.ret != HG_SUCCESS) {
         QTN_ERROR(mid, "margo_bulk_transfer: %s", HG_Error_to_string(out.ret));
+    }
+
+    tid = pthread_self();
+    for (i = 0; i < 64 && tid_histo[i].tid != tid && tid_histo[i].tid != 0;
+         i++) {}
+    assert(i < 64);
+    tid_histo[i].count++;
+    tid_histo[i].tid = tid;
+
+    rpc_count++;
+    if ((rpc_count % 5000) == 0) {
+        printf("####\n");
+        for (i = 0; i < 64 && tid_histo[i].tid != 0; i++)
+            printf("tid: %lu count: %lu\n", tid_histo[i].tid,
+                   tid_histo[i].count);
     }
 
 finish:
