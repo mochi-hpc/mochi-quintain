@@ -5,11 +5,15 @@ src_libquintain_client_la_SOURCES += src/quintain-client.c \
                                      src/quintain-rpc.h
 
 src_libquintain_server_la_SOURCES += src/quintain-server.c \
-                                     src/quintain-rpc.h
+                                     src/quintain-rpc.h \
+                                     src/hoard.cc \
+                                     src/hoard.hpp \
+                                     src/hoard-c.h
 
 dist_bin_SCRIPTS += src/quintain-benchmark-parse.sh
 
 if HAVE_MPI
 bin_PROGRAMS += src/quintain-benchmark
 src_quintain_benchmark_LDADD = src/libquintain-client.la -lbedrock-client
+noinst_HEADERS += src/quintain-macros.h
 endif

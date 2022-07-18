@@ -33,7 +33,12 @@ extern "C" {
 #define QTN_ERR_UNKNOWN_PROVIDER (-4) /* can't find provider */
 
 /* flags for workload operations */
-#define QTN_WORK_USE_SERVER_POOLSET 1
+enum {
+    QTN_WORK_USE_SERVER_POOLSET,
+    QTN_WORK_CACHE_UPDATE,
+    QTN_WORK_CACHE_WRITE,
+    QTN_WORK_CACHE_READ
+};
 
 #ifdef __cplusplus
 }

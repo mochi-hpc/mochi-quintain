@@ -21,6 +21,9 @@
 #include "quintain-rpc.h"
 #include "quintain-macros.h"
 
+#include "hoard-c.h"
+
+DECLARE_MARGO_RPC_HANDLER(qtn_get_server_config_ult)
 DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
 
 static int validate_and_complete_config(struct json_object* _config,
@@ -35,6 +38,8 @@ struct quintain_provider {
     hg_id_t qtn_work_rpc_id;
 
     struct json_object* json_cfg;
+
+    hoard_t hoard_id;
 };
 
 static void quintain_server_finalize_cb(void* data)
@@ -130,6 +135,9 @@ int quintain_provider_register(margo_instance_id mid,
         goto error;
     }
 
+    /* initialize our data strucutre in case we measure concurrency */
+    tmp_provider->hoard_id = hoard_init();
+
     /* register RPCs */
     rpc_id = MARGO_REGISTER_PROVIDER(mid, "qtn_work_rpc", qtn_work_in_t,
                                      qtn_work_out_t, qtn_work_ult, provider_id,
@@ -159,6 +167,7 @@ error:
 
 int quintain_provider_deregister(quintain_provider_t provider)
 {
+    hoard_finalize(provider->hoard_id);
     margo_provider_pop_finalize_callback(provider->mid, provider);
     quintain_server_finalize_cb(provider);
     return QTN_SUCCESS;
@@ -234,6 +243,15 @@ static void qtn_work_ult(hg_handle_t handle)
         out.ret
             = margo_bulk_transfer(mid, in.bulk_op, info->addr, in.bulk_handle,
                                   0, bulk_handle, 0, in.bulk_size);
+    }
+
+    if (in.flags & QTN_WORK_CACHE_UPDATE) {
+        if (in.flags & QTN_WORK_CACHE_WRITE)
+            hoard_put(provider->hoard_id, &(in.scratch),
+                      in.count / sizeof(int64_t), in.offset);
+        else
+            hoard_get(provider->hoard_id, &(in.scratch),
+                      in.count / sizeof(int64_t), in.offset);
     }
     if (out.ret != HG_SUCCESS) {
         QTN_ERROR(mid, "margo_bulk_transfer: %s", HG_Error_to_string(out.ret));

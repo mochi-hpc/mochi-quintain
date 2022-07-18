@@ -19,7 +19,11 @@ typedef struct {
     uint32_t  flags;           /* flags to modify behavior */
     uint32_t  bulk_op;         /* what type of bulk xfer to do */
     hg_bulk_t bulk_handle;     /* bulk handle (if set) for bulk xfer */
-    char*     req_buffer;      /* dummy buffer */
+    int64_t scratch; /* "cache update" mode: value to store in cache (TODO: use
+                        req_buffer instead) */
+    int64_t count;   /* "cache update" mode: how many items to update */
+    int64_t offset;  /* "cache update" mode: where to update */
+    char*   req_buffer; /* dummy buffer */
 } qtn_work_in_t;
 static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p);
 
