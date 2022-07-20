@@ -207,6 +207,9 @@ int main(int argc, char** argv)
     if (json_object_get_boolean(
             json_object_object_get(json_cfg, "use_server_poolset")))
         work_flags |= QTN_WORK_USE_SERVER_POOLSET;
+    if (json_object_get_boolean(
+            json_object_object_get(json_cfg, "concurrency_test")))
+        work_flags |= QTN_WORK_CACHE_UPDATE;
     bulk_size
         = json_object_get_int(json_object_object_get(json_cfg, "bulk_size"));
     if (strcmp("pull", json_object_get_string(
