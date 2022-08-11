@@ -35,6 +35,17 @@ extern "C" {
 /* flags for workload operations */
 #define QTN_WORK_USE_SERVER_POOLSET 1
 
+/* op flags: caller can combine multiple operations into a single call */
+typedef enum {
+    QTN_NOOP        = 0,
+    QTN_BULK_PULL   = 1 << 0,
+    QTN_BULK_PUSH   = 1 << 1,
+    QTN_ABTIO_READ  = 1 << 2,
+    QTN_ABTIO_WRITE = 1 << 3,
+    QTN_MEM_GET     = 1 << 4,
+    QTN_MEM_PUT     = 1 << 5
+} qtn_operations;
+
 #ifdef __cplusplus
 }
 #endif

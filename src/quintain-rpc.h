@@ -19,6 +19,7 @@ typedef struct {
     uint32_t  flags;           /* flags to modify behavior */
     uint32_t  bulk_op;         /* what type of bulk xfer to do */
     hg_bulk_t bulk_handle;     /* bulk handle (if set) for bulk xfer */
+    uint32_t  operation;       /* what type of work we will carry out */
     char*     req_buffer;      /* dummy buffer */
 } qtn_work_in_t;
 static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p);
@@ -40,6 +41,7 @@ static inline hg_return_t hg_proc_qtn_work_in_t(hg_proc_t proc, void* v_out_p)
     hg_proc_uint64_t(proc, &in->req_buffer_size);
     hg_proc_uint64_t(proc, &in->bulk_size);
     hg_proc_uint32_t(proc, &in->bulk_op);
+    hg_proc_uint32_t(proc, &in->operation);
     hg_proc_hg_bulk_t(proc, &in->bulk_handle);
 
     /* The remainder of the request contains the req_buffer; differentiate

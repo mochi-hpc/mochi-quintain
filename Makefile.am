@@ -16,7 +16,8 @@ EXTRA_DIST =
 BUILT_SOURCES =
 include_HEADERS = include/quintain.h \
  include/quintain-server.h \
- include/quintain-client.h
+ include/quintain-client.h \
+ include/quintain-macros.h
 
 TESTS_ENVIRONMENT =
 
