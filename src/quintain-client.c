@@ -107,9 +107,9 @@ int quintain_work(quintain_provider_handle_t provider,
                   int                        req_buffer_size,
                   int                        resp_buffer_size,
                   hg_size_t                  bulk_size,
-                  hg_bulk_op_t               bulk_op,
                   void*                      bulk_buffer,
-                  int                        flags)
+                  int                        flags,
+                  int                        operations)
 {
     hg_handle_t    handle = HG_HANDLE_NULL;
     qtn_work_in_t  in;
@@ -125,8 +125,12 @@ int quintain_work(quintain_provider_handle_t provider,
         goto finish;
     }
 
-    in.bulk_op = bulk_op;
-    if (bulk_op == HG_BULK_PUSH) bulk_flags = HG_BULK_WRITE_ONLY;
+    if (operations & QTN_BULK_PUSH) {
+        in.bulk_op = HG_BULK_PUSH;
+        bulk_flags = HG_BULK_WRITE_ONLY;
+    } else if (operations & QTN_BULK_PULL) {
+        in.bulk_op = HG_BULK_PULL;
+    }
     in.bulk_handle      = HG_BULK_NULL;
     in.resp_buffer_size = resp_buffer_size;
     in.req_buffer_size  = req_buffer_size;
@@ -135,7 +139,9 @@ int quintain_work(quintain_provider_handle_t provider,
     else
         in.req_buffer = NULL;
     in.bulk_size = bulk_size;
-    if (bulk_size) {
+    in.operation = operations;
+
+    if ((operations & QTN_BULK_PULL) | (operations & QTN_BULK_PUSH)) {
         hret = margo_bulk_create(provider->client->mid, 1,
                                  (void**)(&bulk_buffer), &bulk_size, bulk_flags,
                                  &in.bulk_handle);
