@@ -1,5 +1,5 @@
 src_libquintain_bedrock_la_SOURCES += src/quintain-bedrock-module.c
-src_libquintain_bedrock_la_LIBADD = src/libquintain-server.la src/libquintain-client.la
+src_libquintain_bedrock_la_LIBADD = src/libquintain-server.la src/libquintain-client.la -lbedrock-client
 
 src_libquintain_client_la_SOURCES += src/quintain-client.c \
                                      src/quintain-rpc.h \
@@ -7,7 +7,9 @@ src_libquintain_client_la_SOURCES += src/quintain-client.c \
 				     bedrock-c-wrapper.h
 
 src_libquintain_server_la_SOURCES += src/quintain-server.c \
-                                     src/quintain-rpc.h
+                                     src/quintain-rpc.h \
+				     src/bedrock-c-wrapper.cpp \
+				     bedrock-c-wrapper.h
 
 dist_bin_SCRIPTS += src/quintain-benchmark-parse.sh
 
