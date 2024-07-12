@@ -242,7 +242,12 @@ static void qtn_work_ult(hg_handle_t handle)
 finish:
     margo_respond(handle, &out);
     margo_free_input(handle, &in);
-    if (bulk_handle != HG_BULK_NULL) margo_bulk_free(bulk_handle);
+    if (bulk_handle != HG_BULK_NULL) {
+        if (in.flags & QTN_WORK_USE_SERVER_POOLSET)
+            margo_bulk_poolset_release(provider->poolset, bulk_handle);
+        else
+            margo_bulk_free(bulk_handle);
+    }
     if (bulk_buffer != NULL) free(bulk_buffer);
     if (out.resp_buffer) free(out.resp_buffer);
     margo_destroy(handle);

@@ -85,18 +85,6 @@ LIBS="$BEDROCK_LIBS $LIBS"
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
 
-# see if bedrock has a C API for retrieving configuration
-AC_MSG_CHECKING(for bedrock_service_query_config in Bedrock)
-AC_TRY_COMPILE([
-#include <bedrock/service-handle.h>
-], [
-char* foo = bedrock_service_query_config(NULL, "");
-],
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no)
-AC_MSG_ERROR([This version of Bedrock does not support bedrock_service_query_config])
-)
-
 PKG_CHECK_MODULES([SSG], [ssg >= 0.5],[],
    [AC_MSG_ERROR([Could not find working SSG installationi v0.5 or higher])])
 LIBS="$SSG_LIBS $LIBS"
@@ -104,7 +92,11 @@ CPPFLAGS="$SSG_CFLAGS $CPPFLAGS"
 CFLAGS="$SSG_CFLAGS $CFLAGS"
 
 # need zlib output file
-CHECK_ZLIB
+PKG_CHECK_MODULES([ZLIB], [zlib],[],
+   [AC_MSG_ERROR([Could not find working zlib installation!])])
+LIBS="$ZLIB_LIBS $LIBS"
+CPPFLAGS="$ZLIB_CFLAGS $CPPFLAGS"
+CFLAGS="$ZLIB_CFLAGS $CFLAGS"
 
 # optional mpi; this will cause the benchmark program to be built as well,
 # in addition to the provider piece

@@ -24,9 +24,9 @@
 #include <abt.h>
 #include <ssg.h>
 #include <quintain-client.h>
-#include <bedrock/service-handle.h>
 
 #include "quintain-macros.h"
+#include "bedrock-c-wrapper.h"
 
 /* record up to 32 million (power of 2) samples.  This will take 256 MiB of RAM
  * per rank */
