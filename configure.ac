@@ -92,7 +92,11 @@ CPPFLAGS="$SSG_CFLAGS $CPPFLAGS"
 CFLAGS="$SSG_CFLAGS $CFLAGS"
 
 # need zlib output file
-CHECK_ZLIB
+PKG_CHECK_MODULES([ZLIB], [zlib],[],
+   [AC_MSG_ERROR([Could not find working zlib installation!])])
+LIBS="$ZLIB_LIBS $LIBS"
+CPPFLAGS="$ZLIB_CFLAGS $CPPFLAGS"
+CFLAGS="$ZLIB_CFLAGS $CFLAGS"
 
 # optional mpi; this will cause the benchmark program to be built as well,
 # in addition to the provider piece
