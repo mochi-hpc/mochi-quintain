@@ -85,11 +85,11 @@ LIBS="$BEDROCK_LIBS $LIBS"
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
 
-PKG_CHECK_MODULES([SSG], [ssg >= 0.5],[],
-   [AC_MSG_ERROR([Could not find working SSG installationi v0.5 or higher])])
-LIBS="$SSG_LIBS $LIBS"
-CPPFLAGS="$SSG_CFLAGS $CPPFLAGS"
-CFLAGS="$SSG_CFLAGS $CFLAGS"
+PKG_CHECK_MODULES([FLOCK], [flock-client >= 0.3.0],[],
+   [AC_MSG_ERROR([Could not find working Flock installation v0.3.0 or higher])])
+LIBS="$FLOCK_LIBS $LIBS"
+CPPFLAGS="$FLOCK_CFLAGS $CPPFLAGS"
+CFLAGS="$FLOCK_CFLAGS $CFLAGS"
 
 # need zlib output file
 PKG_CHECK_MODULES([ZLIB], [zlib],[],
