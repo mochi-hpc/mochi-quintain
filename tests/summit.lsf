@@ -1,6 +1,6 @@
 #!/bin/bash
 # Begin LSF Directives
-#BSUB -P CSC332 
+#BSUB -P CSC332
 #BSUB -W 0:10
 #BSUB -nnodes 4
 #BSUB -J quintain
@@ -21,4 +21,4 @@ export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$QUINTAIN/build/src/.libs"
 jsrun -n 4 -r 1 -c 42 bedrock  -c ${QUINTAIN}/tests/mochi-quintain-provider.json verbs:// &
 
 
-jsrun -n 4 -a 42 -c 42 ${QUINTAIN}/build/src/quintain-benchmark -g quintain.ssg -j ${QUINTAIN}/tests/quintain-benchmark-example.json -o test-output
+jsrun -n 4 -a 42 -c 42 ${QUINTAIN}/build/src/quintain-benchmark -g quintain.flock.json -j ${QUINTAIN}/tests/quintain-benchmark-example.json -o test-output

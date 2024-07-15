@@ -1,0 +1,26 @@
+spack:
+  specs:
+  - autoconf
+  - automake
+  - libtool
+  - mpi
+  - mochi-bedrock
+  - mochi-flock
+  - zlib-api
+  concretizer:
+    unify: true
+    reuse: true
+  modules:
+    prefix_inspections:
+      lib: [LD_LIBRARY_PATH]
+      lib64: [LD_LIBRARY_PATH]
+  packages:
+    mochi-bedrock:
+      require:
+      - "@0.13.1:"
+      - "+ssg"
+      - "+mpi"
+    mochi-flock:
+      require:
+      - "+mpi"
+      - "@0.3.1:"

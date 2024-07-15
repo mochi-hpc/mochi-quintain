@@ -1,21 +1,14 @@
 $config = {
     "margo" : {
         "argobots" : {
-	    // jx9 needs these objects to exist even if they are empty
+            // jx9 needs these objects to exist even if they are empty
             "pools": [ ],
-	    "xstreams": []
-	}
-    },
-    "ssg": {
-        "name" : "quintain",
-        "bootstrap" : "init",
-        "group_file" : "./quintain.ssg",
-        "swim": {
-                    "disabled": true
-                }
+            "xstreams": []
+        }
     },
     "libraries" : {
-        "quintain" : "libquintain-bedrock.so"
+        "quintain" : "libquintain-bedrock.so",
+        "flock" : "libflock-bedrock-module.so"
     },
     "providers" : [
         {
@@ -23,7 +16,19 @@ $config = {
             "type" : "quintain",
             "provider_id" : 1,
             "pool" : "__primary__",
+            "config" : {}
+        },
+        {
+            "name" : "quintain_group",
+            "type" : "flock",
+            "provider_id" : 2,
+            "pool" : "__primary__",
             "config" : {
+                "group": {
+                    "type": "static"
+                },
+                "bootstrap": "mpi",
+                "file": "./quintain.flock.json"
             }
         }
     ]
@@ -33,24 +38,24 @@ $config = {
 // them to draw work from
 if ($num_rpc_xstreams > 0) {
     array_push($config.margo.argobots.pools,
-       {
-	    name:quintain_rpcs,
-	    kind: fifo_wait,
-	    access : mpmc
-	}
-	);
+        {
+            name:quintain_rpcs,
+            kind: fifo_wait,
+            access : mpmc
+        }
+    );
 }
 
 for ($i = 0; $i < $num_rpc_xstreams; $i++) {
     $xstream_name = "rpc" .. $i;
     array_push($config.margo.argobots.xstreams,
-       {
-           name:$xstream_name,
-	   scheduler:{
-	       "type" : "basic_wait",
-	       "pools" : [ "quintain_rpcs" ]
-	   }
-	}
+        {
+            name:$xstream_name,
+            scheduler:{
+                "type" : "basic_wait",
+                "pools" : [ "quintain_rpcs" ]
+            }
+        }
     );
 }
 
