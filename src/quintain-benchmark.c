@@ -135,6 +135,17 @@ int main(int argc, char** argv)
     // create a Flock client, a Flock group handle, and do an update after
     // loading the group handle from the file.
 
+    if (nproviders == 0) {
+        fprintf(stderr, "Error: flock group has no members.\n");
+        goto err_margo_cleanup;
+    } else if (nproviders > 1) {
+        fprintf(stderr,
+                "# Warning: flock group of size %d detected, but the quintain "
+                "benchmark presently only supports issuing RPCs to the first "
+                "member.\n",
+                nproviders);
+    }
+
     /* refresh view of servers */
     MPI_Barrier(MPI_COMM_WORLD);
 
