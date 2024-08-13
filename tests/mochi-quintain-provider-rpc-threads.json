@@ -40,16 +40,9 @@
             ]
         }
     },
-    "ssg": {
-        "name" : "quintain",
-        "bootstrap" : "init",
-        "group_file" : "./quintain.ssg",
-        "swim": {
-                    "disabled": true
-                }
-    },
     "libraries" : {
-        "quintain" : "libquintain-bedrock.so"
+        "quintain" : "libquintain-bedrock.so",
+        "flock" : "libflock-bedrock-module.so"
     },
     "providers" : [
         {
@@ -58,6 +51,19 @@
             "provider_id" : 1,
             "pool" : "quintain_rpcs",
             "config" : {
+            }
+        },
+        {
+            "name" : "quintain_group",
+            "type" : "flock",
+            "provider_id" : 2,
+            "pool" : "__primary__",
+            "config" : {
+                "group": {
+                    "type": "static"
+                },
+                "bootstrap": "mpi",
+                "file": "./quintain.flock.json"
             }
         }
     ]

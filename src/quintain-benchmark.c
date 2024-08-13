@@ -22,8 +22,8 @@
 #include <mpi.h>
 
 #include <abt.h>
-#include <ssg.h>
 #include <quintain-client.h>
+#include <flock/flock-group-view.h>
 
 #include "quintain-macros.h"
 #include "bedrock-c-wrapper.h"
@@ -58,7 +58,7 @@ int main(int argc, char** argv)
 {
     int                        nranks, nproviders, my_rank;
     int                        ret;
-    ssg_group_id_t             gid;
+    flock_group_view_t         group_view      = FLOCK_GROUP_VIEW_INITIALIZER;
     char*                      svr_addr_str    = NULL;
     char                       proto[64]       = {0};
     char*                      svr_cfg_str_raw = NULL;
@@ -80,9 +80,8 @@ int main(int argc, char** argv)
     gzFile                   f            = NULL;
     char                     rank_file[300];
     int                      i;
-    int                      trace_flag = 0;
-    struct sample_statistics stats      = {0};
-    ssg_member_id_t          svr_id;
+    int                      trace_flag   = 0;
+    struct sample_statistics stats        = {0};
     void*                    bulk_buffer  = NULL;
     int                      work_flags   = 0;
     struct margo_init_info   mii          = {0};
@@ -101,13 +100,18 @@ int main(int argc, char** argv)
     /* file name for intermediate results from this rank */
     sprintf(rank_file, "%s.%d", opts.output_file, my_rank);
 
-    /* find transport to initialize margo to match provider */
-    ret = ssg_get_group_transport_from_file(opts.group_file, proto, 64);
-    if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: ssg_get_group_transport_from_file(): %s.\n",
-                ssg_strerror(ret));
+    /* load the Flock group view */
+    flock_return_t fret
+        = flock_group_view_from_file(opts.group_file, &group_view);
+    if (fret != FLOCK_SUCCESS) {
+        fprintf(stderr, "Error: flock_group_view_from_file(): %d.\n", fret);
         goto err_mpi_cleanup;
     }
+
+    /* find transport to initialize margo to match provider */
+    svr_addr_str = group_view.members.data[0].address;
+    for (int i = 0; i < 64 && svr_addr_str[i] != ':'; ++i)
+        proto[i] = svr_addr_str[i];
 
     /* If there is a "margo" section in the json configuration, then
      * serialize it into a string to pass to margo_init_ext().
@@ -121,58 +125,29 @@ int main(int argc, char** argv)
         fprintf(stderr, "Error: failed to initialize margo with %s protocol.\n",
                 proto);
         ret = -1;
-        goto err_mpi_cleanup;
+        goto err_flock_cleanup;
     }
 
-    ret = ssg_init();
-    if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: ssg_init(): %s.\n", ssg_strerror(ret));
-        goto err_margo_cleanup;
-    }
-
-    /* load ssg group information */
-    nproviders = 1;
-    ret        = ssg_group_id_load(opts.group_file, &nproviders, &gid);
-    if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: ssg_group_id_load(): %s.\n", ssg_strerror(ret));
-        goto err_ssg_cleanup;
-    }
+    /* get the number of providers */
+    nproviders = group_view.members.size;
+    // Note: here we assume that the file we loaded is the current
+    // representation of the group; if this could not be the case, we should
+    // create a Flock client, a Flock group handle, and do an update after
+    // loading the group handle from the file.
 
     /* refresh view of servers */
-    ret = ssg_group_refresh(mid, gid);
-    if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: ssg_group_refresh(): %s.\n", ssg_strerror(ret));
-        goto err_ssg_cleanup;
-    }
     MPI_Barrier(MPI_COMM_WORLD);
-    if (my_rank == 0)
-        printf("# SSG group refreshed; proceeding with benchmark.\n");
-
-    /* get addr for rank 0 in ssg group */
-    ret = ssg_get_group_member_id_from_rank(gid, 0, &svr_id);
-    if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: ssg_group_member_id_from_rank(): %s.\n",
-                ssg_strerror(ret));
-        goto err_ssg_cleanup;
-    }
-
-    ret = ssg_get_group_member_addr_str(gid, svr_id, &svr_addr_str);
-    if (ret != SSG_SUCCESS) {
-        fprintf(stderr, "Error: ssg_get_group_member_addr_str(): %s.\n",
-                ssg_strerror(ret));
-        goto err_ssg_cleanup;
-    }
 
     ret = margo_addr_lookup(mid, svr_addr_str, &svr_addr);
     if (ret != HG_SUCCESS) {
         fprintf(stderr, "Error: margo_addr_lookup()\n");
-        goto err_ssg_cleanup;
+        goto err_margo_cleanup;
     }
 
     ret = bedrock_client_init(mid, &bcl);
     if (ret != BEDROCK_SUCCESS) {
         fprintf(stderr, "Error: bedrock_client_init() failure.\n");
-        goto err_ssg_cleanup;
+        goto err_margo_cleanup;
     }
 
     ret = bedrock_service_handle_create(bcl, svr_addr_str, 0, &bsh);
@@ -436,12 +411,11 @@ err_qtn_cleanup:
 err_br_cleanup:
     if (bsh != NULL) bedrock_service_handle_destroy(bsh);
     if (bcl != NULL) bedrock_client_finalize(bcl);
-err_ssg_cleanup:
-    if (svr_addr_str) free(svr_addr_str);
-    ssg_finalize();
 err_margo_cleanup:
     if (svr_addr != HG_ADDR_NULL) margo_addr_free(mid, svr_addr);
     margo_finalize(mid);
+err_flock_cleanup:
+    flock_group_view_clear(&group_view);
 err_mpi_cleanup:
     if (json_cfg) json_object_put(json_cfg);
     if (svr_config) json_object_put(svr_config);
