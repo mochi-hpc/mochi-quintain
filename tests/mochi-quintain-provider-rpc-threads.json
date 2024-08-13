@@ -39,7 +39,7 @@
                 }
             ]
         }
-    }
+    },
     "libraries" : {
         "quintain" : "libquintain-bedrock.so",
         "flock" : "libflock-bedrock-module.so"
