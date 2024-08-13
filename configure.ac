@@ -79,13 +79,13 @@ JSONC_CFLAGS=`echo $JSONC_CFLAGS | sed 's/\/include\/json-c/\/include/g'`
 CPPFLAGS="$JSONC_CFLAGS $CPPFLAGS"
 CFLAGS="$JSONC_CFLAGS $CFLAGS"
 
-PKG_CHECK_MODULES([BEDROCK], [bedrock-server],[],
+PKG_CHECK_MODULES([BEDROCK], [bedrock-server >= 0.14.0],[],
    [AC_MSG_ERROR([Could not find working bedrock installation!])])
 LIBS="$BEDROCK_LIBS $LIBS"
 CPPFLAGS="$BEDROCK_CFLAGS $CPPFLAGS"
 CFLAGS="$BEDROCK_CFLAGS $CFLAGS"
 
-PKG_CHECK_MODULES([FLOCK], [flock-client >= 0.3.0],[],
+PKG_CHECK_MODULES([FLOCK], [flock-client >= 0.4.1],[],
    [AC_MSG_ERROR([Could not find working Flock installation v0.3.0 or higher])])
 LIBS="$FLOCK_LIBS $LIBS"
 CPPFLAGS="$FLOCK_CFLAGS $CPPFLAGS"
