@@ -58,7 +58,7 @@ int main(int argc, char** argv)
 {
     int                        nranks, nproviders, my_rank;
     int                        ret;
-    flock_group_view_t         group_view = FLOCK_GROUP_VIEW_INITIALIZER;
+    flock_group_view_t         group_view      = FLOCK_GROUP_VIEW_INITIALIZER;
     char*                      svr_addr_str    = NULL;
     char                       proto[64]       = {0};
     char*                      svr_cfg_str_raw = NULL;
@@ -80,8 +80,8 @@ int main(int argc, char** argv)
     gzFile                   f            = NULL;
     char                     rank_file[300];
     int                      i;
-    int                      trace_flag = 0;
-    struct sample_statistics stats      = {0};
+    int                      trace_flag   = 0;
+    struct sample_statistics stats        = {0};
     void*                    bulk_buffer  = NULL;
     int                      work_flags   = 0;
     struct margo_init_info   mii          = {0};
@@ -101,7 +101,8 @@ int main(int argc, char** argv)
     sprintf(rank_file, "%s.%d", opts.output_file, my_rank);
 
     /* load the Flock group view */
-    flock_return_t fret = flock_group_view_from_file(opts.group_file, &group_view);
+    flock_return_t fret
+        = flock_group_view_from_file(opts.group_file, &group_view);
     if (fret != FLOCK_SUCCESS) {
         fprintf(stderr, "Error: flock_group_view_from_file(): %d.\n", fret);
         goto err_mpi_cleanup;
@@ -109,7 +110,8 @@ int main(int argc, char** argv)
 
     /* find transport to initialize margo to match provider */
     svr_addr_str = group_view.members.data[0].address;
-    for(int i=0; i < 64 && svr_addr_str[i] != ':'; ++i) proto[i] = svr_addr_str[i];
+    for (int i = 0; i < 64 && svr_addr_str[i] != ':'; ++i)
+        proto[i] = svr_addr_str[i];
 
     /* If there is a "margo" section in the json configuration, then
      * serialize it into a string to pass to margo_init_ext().
@@ -128,9 +130,10 @@ int main(int argc, char** argv)
 
     /* get the number of providers */
     nproviders = group_view.members.size;
-    // Note: here we assume that the file we loaded is the current representation of
-    // the group; if this could not be the case, we should create a Flock client, a
-    // Flock group handle, and do an update after loading the group handle from the file.
+    // Note: here we assume that the file we loaded is the current
+    // representation of the group; if this could not be the case, we should
+    // create a Flock client, a Flock group handle, and do an update after
+    // loading the group handle from the file.
 
     /* refresh view of servers */
     MPI_Barrier(MPI_COMM_WORLD);
