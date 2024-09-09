@@ -22,6 +22,7 @@
 #include "quintain-macros.h"
 
 DECLARE_MARGO_RPC_HANDLER(qtn_work_ult)
+DECLARE_MARGO_RPC_HANDLER(qtn_stat_ult)
 
 static int validate_and_complete_config(struct json_object* _config,
                                         ABT_pool            _progress_pool);
@@ -346,3 +347,44 @@ static int setup_poolset(quintain_provider_t provider)
     /* otherwise nothing to do here */
     return QTN_SUCCESS;
 }
+
+static void qtn_stat_ult(hg_handle_t handle)
+{
+    margo_instance_id     mid      = MARGO_INSTANCE_NULL;
+    qtn_stat_out_t        out      = {0};
+    const struct hg_info* info     = NULL;
+    quintain_provider_t   provider = NULL;
+    struct rusage         usage;
+    int                   ret;
+
+    memset(&out, 0, sizeof(out));
+
+    mid = margo_hg_handle_get_instance(handle);
+    assert(mid);
+    info     = margo_get_info(handle);
+    provider = margo_registered_data(mid, info->id);
+    if (!provider) {
+        out.ret = QTN_ERR_UNKNOWN_PROVIDER;
+        QTN_ERROR(mid, "Unkown provider");
+        goto finish;
+    }
+
+    /* no input */
+
+    ret = getrusage(RUSAGE_SELF, &usage);
+    if (ret != 0) {
+        out.ret = QTN_ERR_STATISTICS;
+        QTN_ERROR(mid, "getrusage failure");
+        goto finish;
+    } else {
+        out.utime_sec  = usage.ru_utime.tv_sec;
+        out.utime_usec = usage.ru_utime.tv_usec;
+        out.stime_sec  = usage.ru_stime.tv_sec;
+        out.stime_usec = usage.ru_stime.tv_usec;
+    }
+
+finish:
+    margo_respond(handle, &out);
+    margo_destroy(handle);
+}
+DEFINE_MARGO_RPC_HANDLER(qtn_stat_ult)
