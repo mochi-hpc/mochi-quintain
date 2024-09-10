@@ -87,6 +87,9 @@ int main(int argc, char** argv)
     struct margo_init_info   mii          = {0};
     struct json_object*      margo_config = NULL;
     struct json_object*      svr_config   = NULL;
+    double                   svr_utime1, svr_stime1, svr_alltime1;
+    double                   svr_utime2, svr_stime2, svr_alltime2;
+    double                   svr_utime, svr_stime, svr_alltime;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -245,6 +248,18 @@ int main(int argc, char** argv)
         }
     }
 
+    /* synchronize clients to make sure they are all ready before we query
+     * server statistics*/
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if (my_rank == 0) {
+        ret = quintain_stat(qph, &svr_utime1, &svr_stime1, &svr_alltime1);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Error: quintain_stat() failure: (%d)\n", ret);
+            goto err_qtn_cleanup;
+        }
+    }
+
     /* barrier to start measurements */
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -269,6 +284,17 @@ int main(int argc, char** argv)
     } while (this_ts < duration_seconds);
 
     MPI_Barrier(MPI_COMM_WORLD);
+
+    if (my_rank == 0) {
+        ret = quintain_stat(qph, &svr_utime2, &svr_stime2, &svr_alltime2);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Error: quintain_stat() failure: (%d)\n", ret);
+            goto err_qtn_cleanup;
+        }
+        svr_utime   = svr_utime2 - svr_utime1;
+        svr_stime   = svr_stime2 - svr_stime1;
+        svr_alltime = svr_alltime2 - svr_alltime1;
+    }
 
     /* store results */
     f = gzopen(rank_file, "w");
@@ -370,6 +396,29 @@ int main(int argc, char** argv)
     gzprintf(f, "sample_stats\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
              stats.min, stats.q1, stats.median, stats.q3, stats.max,
              stats.mean);
+    if (my_rank == 0) {
+        gzprintf(f,
+                 "# "
+                 "server_utime\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<"
+                 "mean>\n");
+        gzprintf(f, "server_utime\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
+                 svr_utime, svr_utime, svr_utime, svr_utime, svr_utime,
+                 svr_utime);
+        gzprintf(f,
+                 "# "
+                 "server_stime\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<"
+                 "mean>\n");
+        gzprintf(f, "server_stime\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
+                 svr_stime, svr_stime, svr_stime, svr_stime, svr_stime,
+                 svr_stime);
+        gzprintf(f,
+                 "# "
+                 "server_alltime\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<"
+                 "mean>\n");
+        gzprintf(f, "server_alltime\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
+                 svr_alltime, svr_alltime, svr_alltime, svr_alltime,
+                 svr_alltime, svr_alltime);
+    }
 
     if (f) {
         gzclose(f);

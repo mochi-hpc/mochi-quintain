@@ -181,10 +181,9 @@ finish:
 }
 
 int quintain_stat(quintain_provider_handle_t provider,
-                  int64_t*                   utime_sec,
-                  int64_t*                   utime_usec,
-                  int64_t*                   stime_sec,
-                  int64_t*                   stime_usec)
+                  double*                    utime_sec,
+                  double*                    stime_sec,
+                  double*                    alltime_sec)
 {
     hg_handle_t    handle = HG_HANDLE_NULL;
     qtn_stat_out_t out;
@@ -214,11 +213,10 @@ int quintain_stat(quintain_provider_handle_t provider,
         goto finish;
     }
 
-    ret         = out.ret;
-    *utime_sec  = out.utime_sec;
-    *utime_usec = out.utime_usec;
-    *stime_sec  = out.stime_sec;
-    *stime_usec = out.stime_usec;
+    ret        = out.ret;
+    *utime_sec = (double)out.utime_sec + (double)out.utime_usec / (double)1E6L;
+    *stime_sec = (double)out.stime_sec + (double)out.stime_usec / (double)1E6L;
+    *alltime_sec = *utime_sec + *stime_sec;
 
 finish:
 

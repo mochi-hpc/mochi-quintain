@@ -34,6 +34,7 @@ struct quintain_provider {
     margo_bulk_poolset_t poolset; /* intermediate buffers, if used */
 
     hg_id_t qtn_work_rpc_id;
+    hg_id_t qtn_stat_rpc_id;
 
     struct json_object* json_cfg;
 };
@@ -44,6 +45,7 @@ static void quintain_server_finalize_cb(void* data)
     assert(provider);
 
     margo_deregister(provider->mid, provider->qtn_work_rpc_id);
+    margo_deregister(provider->mid, provider->qtn_stat_rpc_id);
 
     if (provider->poolset) margo_bulk_poolset_destroy(provider->poolset);
 
@@ -137,6 +139,11 @@ int quintain_provider_register(margo_instance_id mid,
                                      tmp_provider->handler_pool);
     margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
     tmp_provider->qtn_work_rpc_id = rpc_id;
+    rpc_id = MARGO_REGISTER_PROVIDER(mid, "qtn_stat_rpc", void, qtn_stat_out_t,
+                                     qtn_stat_ult, provider_id,
+                                     tmp_provider->handler_pool);
+    margo_register_data(mid, rpc_id, (void*)tmp_provider, NULL);
+    tmp_provider->qtn_stat_rpc_id = rpc_id;
 
     /* install the quintain server finalize callback */
     margo_provider_push_finalize_callback(
