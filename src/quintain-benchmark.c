@@ -412,12 +412,12 @@ int main(int argc, char** argv)
              stats.min, stats.q1, stats.median, stats.q3, stats.max,
              stats.mean);
     if (my_rank == 0) {
-        gzprintf(f,
-                 "# server_stats\t<server_rank>\t<utime>\t<stime>\t<alltime>n");
+        gzprintf(
+            f, "# server_stats\t<server_rank>\t<utime>\t<stime>\t<alltime>\n");
         gzprintf(f, "server_stats\t%d\t%f\t%f\t%f\n", 0, svr_utime, svr_stime,
                  svr_alltime);
     }
-    gzprintf(f, "# client_stats\t<rank>\t<utime>\t<stime>\t<alltime>n");
+    gzprintf(f, "# client_stats\t<rank>\t<utime>\t<stime>\t<alltime>\n");
     gzprintf(f, "client_stats\t%d\t%f\t%f\t%f\n", 0, cli_utime, cli_stime,
              cli_alltime);
 
