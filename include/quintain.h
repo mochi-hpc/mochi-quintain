@@ -31,6 +31,7 @@ extern "C" {
 #define QTN_ERR_INVALID_ARG      (-2) /* invalid argument */
 #define QTN_ERR_MERCURY          (-3) /* Mercury error */
 #define QTN_ERR_UNKNOWN_PROVIDER (-4) /* can't find provider */
+#define QTN_ERR_STATISTICS       (-5) /* unable to retrieve statistics */
 
 /* flags for workload operations */
 #define QTN_WORK_USE_SERVER_POOLSET 1

@@ -123,4 +123,8 @@ static inline hg_return_t hg_proc_qtn_work_out_t(hg_proc_t proc, void* v_out_p)
     return (HG_SUCCESS);
 }
 
+MERCURY_GEN_PROC(qtn_stat_out_t,
+                 ((int32_t)(ret))((int64_t)(utime_sec))((int64_t)(utime_usec))(
+                     (int64_t)(stime_sec))((int64_t)(stime_usec)))
+
 #endif /* __QUINTAIN_RPC */

@@ -39,6 +39,11 @@ int quintain_work(quintain_provider_handle_t provider,
                   void*                      bulk_buffer,
                   int                        flags);
 
+int quintain_stat(quintain_provider_handle_t provider,
+                  double*                    utime_sec,
+                  double*                    stime_sec,
+                  double*                    alltime_sec);
+
 #ifdef __cplusplus
 }
 #endif

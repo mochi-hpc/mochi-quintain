@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <sys/resource.h>
 
 #include <json-c/json.h>
 #include <mpi.h>
@@ -53,6 +54,8 @@ static int  parse_args(int                  argc,
                        struct json_object** json_cfg);
 static void usage(void);
 static int  sample_compare(const void* p1, const void* p2);
+static int
+local_stat(double* utime_sec, double* stime_sec, double* alltime_sec);
 
 int main(int argc, char** argv)
 {
@@ -87,6 +90,12 @@ int main(int argc, char** argv)
     struct margo_init_info   mii          = {0};
     struct json_object*      margo_config = NULL;
     struct json_object*      svr_config   = NULL;
+    double                   svr_utime1, svr_stime1, svr_alltime1;
+    double                   svr_utime2, svr_stime2, svr_alltime2;
+    double                   svr_utime, svr_stime, svr_alltime;
+    double                   cli_utime1, cli_stime1, cli_alltime1;
+    double                   cli_utime2, cli_stime2, cli_alltime2;
+    double                   cli_utime, cli_stime, cli_alltime;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -245,6 +254,21 @@ int main(int argc, char** argv)
         }
     }
 
+    /* synchronize clients to make sure they are all ready before we query
+     * statistics*/
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    ret = local_stat(&cli_utime1, &cli_stime1, &cli_alltime1);
+    if (ret != 0) goto err_qtn_cleanup;
+
+    if (my_rank == 0) {
+        ret = quintain_stat(qph, &svr_utime1, &svr_stime1, &svr_alltime1);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Error: quintain_stat() failure: (%d)\n", ret);
+            goto err_qtn_cleanup;
+        }
+    }
+
     /* barrier to start measurements */
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -269,6 +293,23 @@ int main(int argc, char** argv)
     } while (this_ts < duration_seconds);
 
     MPI_Barrier(MPI_COMM_WORLD);
+
+    ret = local_stat(&cli_utime2, &cli_stime2, &cli_alltime2);
+    if (ret != 0) goto err_qtn_cleanup;
+    cli_utime   = cli_utime2 - cli_utime1;
+    cli_stime   = cli_stime2 - cli_stime1;
+    cli_alltime = cli_alltime2 - cli_alltime1;
+
+    if (my_rank == 0) {
+        ret = quintain_stat(qph, &svr_utime2, &svr_stime2, &svr_alltime2);
+        if (ret != QTN_SUCCESS) {
+            fprintf(stderr, "Error: quintain_stat() failure: (%d)\n", ret);
+            goto err_qtn_cleanup;
+        }
+        svr_utime   = svr_utime2 - svr_utime1;
+        svr_stime   = svr_stime2 - svr_stime1;
+        svr_alltime = svr_alltime2 - svr_alltime1;
+    }
 
     /* store results */
     f = gzopen(rank_file, "w");
@@ -370,6 +411,15 @@ int main(int argc, char** argv)
     gzprintf(f, "sample_stats\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
              stats.min, stats.q1, stats.median, stats.q3, stats.max,
              stats.mean);
+    if (my_rank == 0) {
+        gzprintf(f,
+                 "# server_stats\t<server_rank>\t<utime>\t<stime>\t<alltime>n");
+        gzprintf(f, "server_stats\t%d\t%f\t%f\t%f\n", 0, svr_utime, svr_stime,
+                 svr_alltime);
+    }
+    gzprintf(f, "# client_stats\t<rank>\t<utime>\t<stime>\t<alltime>n");
+    gzprintf(f, "client_stats\t%d\t%f\t%f\t%f\n", 0, cli_utime, cli_stime,
+             cli_alltime);
 
     if (f) {
         gzclose(f);
@@ -562,4 +612,24 @@ static int sample_compare(const void* p1, const void* p2)
     if (d1 > d2) return 1;
     if (d1 < d2) return -1;
     return 0;
+}
+
+static int local_stat(double* utime_sec, double* stime_sec, double* alltime_sec)
+{
+    struct rusage usage;
+    int           ret;
+
+    ret = getrusage(RUSAGE_SELF, &usage);
+    if (ret != 0) {
+        perror("getrusage");
+        return (-1);
+    }
+
+    *utime_sec = (double)usage.ru_utime.tv_sec
+               + (double)usage.ru_utime.tv_usec / (double)1E6L;
+    *stime_sec = (double)usage.ru_stime.tv_sec
+               + (double)usage.ru_utime.tv_usec / (double)1E6L;
+    *alltime_sec = *utime_sec + *stime_sec;
+
+    return (0);
 }

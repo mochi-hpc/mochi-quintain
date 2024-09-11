@@ -15,6 +15,7 @@ struct quintain_client {
     margo_instance_id mid;
 
     hg_id_t qtn_work_rpc_id;
+    hg_id_t qtn_stat_rpc_id;
 
     uint64_t num_provider_handles;
 };
@@ -42,9 +43,13 @@ int quintain_client_init(margo_instance_id mid, quintain_client_t* client)
     if (already_registered_flag == HG_TRUE) { /* RPCs already registered */
         margo_registered_name(mid, "qtn_work_rpc", &c->qtn_work_rpc_id,
                               &already_registered_flag);
+        margo_registered_name(mid, "qtn_stat_rpc", &c->qtn_stat_rpc_id,
+                              &already_registered_flag);
     } else { /* RPCs not already registered */
         c->qtn_work_rpc_id = MARGO_REGISTER(mid, "qtn_work_rpc", qtn_work_in_t,
                                             qtn_work_out_t, NULL);
+        c->qtn_stat_rpc_id
+            = MARGO_REGISTER(mid, "qtn_stat_rpc", void, qtn_stat_out_t, NULL);
     }
 
     *client = c;
@@ -169,6 +174,52 @@ finish:
 
     if (in.bulk_handle != HG_BULK_NULL) margo_bulk_free(in.bulk_handle);
     if (in.req_buffer) free(in.req_buffer);
+    if (hret == HG_SUCCESS) margo_free_output(handle, &out);
+    if (handle != HG_HANDLE_NULL) margo_destroy(handle);
+
+    return (ret);
+}
+
+int quintain_stat(quintain_provider_handle_t provider,
+                  double*                    utime_sec,
+                  double*                    stime_sec,
+                  double*                    alltime_sec)
+{
+    hg_handle_t    handle = HG_HANDLE_NULL;
+    qtn_stat_out_t out;
+    int            ret = 0;
+    hg_return_t    hret;
+
+    hret = margo_create(provider->client->mid, provider->addr,
+                        provider->client->qtn_stat_rpc_id, &handle);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        goto finish;
+    }
+
+    hret = margo_provider_forward(provider->provider_id, handle, NULL);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_provider_forward: %s",
+                  HG_Error_to_string(hret));
+        goto finish;
+    }
+
+    hret = margo_get_output(handle, &out);
+    if (hret != HG_SUCCESS) {
+        ret = QTN_ERR_MERCURY;
+        QTN_ERROR(provider->client->mid, "margo_get_output: %s",
+                  HG_Error_to_string(hret));
+        goto finish;
+    }
+
+    ret        = out.ret;
+    *utime_sec = (double)out.utime_sec + (double)out.utime_usec / (double)1E6L;
+    *stime_sec = (double)out.stime_sec + (double)out.stime_usec / (double)1E6L;
+    *alltime_sec = *utime_sec + *stime_sec;
+
+finish:
+
     if (hret == HG_SUCCESS) margo_free_output(handle, &out);
     if (handle != HG_HANDLE_NULL) margo_destroy(handle);
 
