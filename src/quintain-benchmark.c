@@ -96,6 +96,7 @@ int main(int argc, char** argv)
     double                   cli_utime1, cli_stime1, cli_alltime1;
     double                   cli_utime2, cli_stime2, cli_alltime2;
     double                   cli_utime, cli_stime, cli_alltime;
+    int                      provider_id = -1;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nranks);
@@ -182,8 +183,9 @@ int main(int argc, char** argv)
         goto err_br_cleanup;
     }
 
-    /* TODO: allow other provider_id values besides 1 */
-    ret = quintain_provider_handle_create(qcl, svr_addr, 1, &qph);
+    provider_id
+        = json_object_get_int(json_object_object_get(json_cfg, "provider_id"));
+    ret = quintain_provider_handle_create(qcl, svr_addr, provider_id, &qph);
     if (ret != QTN_SUCCESS) {
         fprintf(stderr, "Error: quintain_provider_handle_create() failure.\n");
         goto err_qtn_cleanup;
@@ -540,6 +542,7 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     CONFIG_OVERRIDE_INTEGER(*json_cfg, "nranks", nranks, 1);
 
     /* set defaults if not present */
+    CONFIG_HAS_OR_CREATE(*json_cfg, int, "provider_id", 1, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "duration_seconds", 2, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "req_buffer_size", 128, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "resp_buffer_size", 128, val);
