@@ -384,8 +384,8 @@ int main(int argc, char** argv)
         gzprintf(f, "# sample_trace\t<rank>\t<start>\t<end>\t<elapsed>\n");
         this_ts = 0;
         for (i = 0; i < sample_index && i < MAX_SAMPLES; i++) {
-            gzprintf(f, "sample_trace\t%d\t%f\t%f\t%f\n", my_rank, this_ts,
-                     (this_ts + samples[i]), samples[i]);
+            gzprintf(f, "sample_trace\t%d\t%.9f\t%.9f\t%.9f\n", my_rank,
+                     this_ts, (this_ts + samples[i]), samples[i]);
             this_ts += samples[i];
         }
     }
@@ -410,17 +410,17 @@ int main(int argc, char** argv)
     gzprintf(
         f,
         "# sample_stats\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>\n");
-    gzprintf(f, "sample_stats\t%d\t%f\t%f\t%f\t%f\t%f\t%f\n", my_rank,
-             stats.min, stats.q1, stats.median, stats.q3, stats.max,
+    gzprintf(f, "sample_stats\t%d\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\n",
+             my_rank, stats.min, stats.q1, stats.median, stats.q3, stats.max,
              stats.mean);
     if (my_rank == 0) {
         gzprintf(
             f, "# server_stats\t<server_rank>\t<utime>\t<stime>\t<alltime>\n");
-        gzprintf(f, "server_stats\t%d\t%f\t%f\t%f\n", 0, svr_utime, svr_stime,
-                 svr_alltime);
+        gzprintf(f, "server_stats\t%d\t%.9f\t%.9f\t%.9f\n", 0, svr_utime,
+                 svr_stime, svr_alltime);
     }
     gzprintf(f, "# client_stats\t<rank>\t<utime>\t<stime>\t<alltime>\n");
-    gzprintf(f, "client_stats\t%d\t%f\t%f\t%f\n", 0, cli_utime, cli_stime,
+    gzprintf(f, "client_stats\t%d\t%.9f\t%.9f\t%.9f\n", 0, cli_utime, cli_stime,
              cli_alltime);
 
     if (f) {
