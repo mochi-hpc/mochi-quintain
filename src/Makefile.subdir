@@ -1,4 +1,4 @@
-src_libquintain_bedrock_la_SOURCES += src/quintain-bedrock-module.c
+src_libquintain_bedrock_la_SOURCES += src/quintain-bedrock-module.cpp
 src_libquintain_bedrock_la_LIBADD = src/libquintain-server.la src/libquintain-client.la -lbedrock-client
 
 src_libquintain_client_la_SOURCES += src/quintain-client.c \
