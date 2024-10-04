@@ -381,6 +381,7 @@ int main(int argc, char** argv)
 
     /* if requested, report every sample */
     if (trace_flag) {
+        gzprintf(f, "start_timestamp\t%f\n", start_ts);
         gzprintf(f, "# sample_trace\t<rank>\t<start>\t<end>\t<elapsed>\n");
         this_ts = 0;
         for (i = 0; i < sample_index && i < MAX_SAMPLES; i++) {
