@@ -40,24 +40,27 @@
             ]
         }
     },
-    "libraries" : {
-        "quintain" : "libquintain-bedrock.so",
-        "flock" : "libflock-bedrock-module.so"
-    },
+    "libraries" : [
+        "libquintain-bedrock.so",
+        "libflock-bedrock-module.so"
+    ],
     "providers" : [
         {
             "name" : "my_quintain_provider",
             "type" : "quintain",
             "provider_id" : 1,
-            "pool" : "quintain_rpcs",
-            "config" : {
-            }
+            "dependencies": {
+                "pool" : "quintain_rpcs"
+            },
+            "config" : {}
         },
         {
             "name" : "quintain_group",
             "type" : "flock",
             "provider_id" : 2,
-            "pool" : "__primary__",
+            "dependencies": {
+                "pool" : "__primary__"
+            },
             "config" : {
                 "group": {
                     "type": "static"
