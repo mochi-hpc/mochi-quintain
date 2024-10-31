@@ -17,10 +17,9 @@ spack:
   packages:
     mochi-bedrock:
       require:
-      - "@0.13.1:"
-      - "+ssg"
+      - "@0.15.0:"
       - "+mpi"
     mochi-flock:
       require:
       - "+mpi"
-      - "@0.3.1:"
+      - "@0.5.0:"
