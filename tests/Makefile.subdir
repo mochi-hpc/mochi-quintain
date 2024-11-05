@@ -5,12 +5,15 @@ TESTS_ENVIRONMENT += \
 check_PROGRAMS +=
 
 TESTS += \
- tests/basic.sh
+ tests/basic.sh\
+ tests/multi.sh
 
 EXTRA_DIST += \
  tests/basic.sh \
  tests/mochi-quintain-provider.json\
- tests/quintain-benchmark-example.json
+ tests/quintain-benchmark-example.json\
+ tests/mochi-quintain-provider-2svr-A.json\
+ tests/mochi-quintain-provider-2svr-B.json
 
 DISTCLEANFILES += \
     test-output.gz \
