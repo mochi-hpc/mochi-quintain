@@ -25,6 +25,7 @@
 #include <abt.h>
 #include <quintain-client.h>
 #include <flock/flock-group-view.h>
+#include <flock/flock-group.h>
 
 #include "quintain-macros.h"
 #include "bedrock-c-wrapper.h"
@@ -69,7 +70,9 @@ int main(int argc, char** argv)
     margo_instance_id          mid             = MARGO_INSTANCE_NULL;
     quintain_client_t          qcl             = QTN_CLIENT_NULL;
     quintain_provider_handle_t qph             = QTN_PROVIDER_HANDLE_NULL;
+    flock_group_handle_t       fh              = FLOCK_GROUP_HANDLE_NULL;
     bedrock_client_t           bcl             = NULL;
+    flock_client_t             fcl             = FLOCK_CLIENT_NULL;
     bedrock_service_t          bsh             = NULL;
     hg_addr_t                  svr_addr        = HG_ADDR_NULL;
     struct options             opts;
@@ -120,6 +123,7 @@ int main(int argc, char** argv)
 
     /* find transport to initialize margo to match provider */
     svr_addr_str = group_view.members.data[0].address;
+    provider_id  = group_view.members.data[0].provider_id;
     for (int i = 0; i < 64 && svr_addr_str[i] != ':'; ++i)
         proto[i] = svr_addr_str[i];
 
@@ -138,37 +142,64 @@ int main(int argc, char** argv)
         goto err_flock_cleanup;
     }
 
-    /* get the number of providers */
-    nproviders = group_view.members.size;
-    // Note: here we assume that the file we loaded is the current
-    // representation of the group; if this could not be the case, we should
-    // create a Flock client, a Flock group handle, and do an update after
-    // loading the group handle from the file.
-
-    if (nproviders == 0) {
-        fprintf(stderr, "Error: flock group has no members.\n");
-        goto err_margo_cleanup;
-    } else if (nproviders > 1) {
-        fprintf(stderr,
-                "# Warning: flock group of size %d detected, but the quintain "
-                "benchmark presently only supports issuing RPCs to the first "
-                "member.\n",
-                nproviders);
-    }
-
-    /* refresh view of servers */
     MPI_Barrier(MPI_COMM_WORLD);
 
+    /* initialize a Flock client and refresh the view in case it diverges
+     * from what was in the initial group file
+     */
     ret = margo_addr_lookup(mid, svr_addr_str, &svr_addr);
     if (ret != HG_SUCCESS) {
         fprintf(stderr, "Error: margo_addr_lookup()\n");
         goto err_margo_cleanup;
     }
 
+    ret = flock_client_init(mid, ABT_POOL_NULL, &fcl);
+    if (ret != FLOCK_SUCCESS) {
+        fprintf(stderr, "Error: flock_client_init() failure.\n");
+        goto err_flock_cleanup;
+    }
+
+    ret = flock_group_handle_create(fcl, svr_addr, provider_id, true, &fh);
+    if (ret != FLOCK_SUCCESS) {
+        fprintf(stderr, "Error: flock_group_handle_create() failure.\n");
+        goto err_flock_cleanup;
+    }
+
+    ret = flock_group_update_view(fh, NULL);
+    if (ret != FLOCK_SUCCESS) {
+        fprintf(stderr, "Error: flock_group_update_view() failure.\n");
+        goto err_flock_cleanup;
+    }
+
+    ret = flock_group_get_view(fh, &group_view);
+    if (ret != FLOCK_SUCCESS) {
+        fprintf(stderr, "Error: flock_group_get_view() failure.\n");
+        goto err_flock_cleanup;
+    }
+
+    /* get the number of providers */
+    nproviders = flock_group_view_member_count(&group_view);
+    if (nproviders == 0) {
+        fprintf(stderr, "Error: flock group has no members.\n");
+        goto err_flock_cleanup;
+    }
+
     ret = bedrock_client_init(mid, &bcl);
     if (ret != BEDROCK_SUCCESS) {
         fprintf(stderr, "Error: bedrock_client_init() failure.\n");
-        goto err_margo_cleanup;
+        goto err_flock_cleanup;
+    }
+
+    /* each benchmark process selects exactly one server to contact */
+    svr_addr_str = group_view.members.data[nranks % nproviders].address;
+    provider_id  = group_view.members.data[nranks % nproviders].provider_id;
+
+    /* resolve address to target server */
+    margo_addr_free(mid, svr_addr);
+    ret = margo_addr_lookup(mid, svr_addr_str, &svr_addr);
+    if (ret != HG_SUCCESS) {
+        fprintf(stderr, "Error: margo_addr_lookup()\n");
+        goto err_flock_cleanup;
     }
 
     ret = bedrock_service_handle_create(bcl, svr_addr_str, 0, &bsh);
@@ -369,7 +400,7 @@ int main(int argc, char** argv)
         /* add new one, derived at run time */
         json_object_object_add(json_cfg, "margo", margo_config);
 
-        gzprintf(f, "\"quintain-provider\" : %s\n",
+        gzprintf(f, "\"quintain-provider (first of %d)\" : %s\n", nproviders,
                  json_object_to_json_string_ext(
                      svr_config,
                      JSON_C_TO_STRING_PRETTY | JSON_C_TO_STRING_NOSLASHESCAPE));
@@ -421,8 +452,8 @@ int main(int argc, char** argv)
                  svr_stime, svr_alltime);
     }
     gzprintf(f, "# client_stats\t<rank>\t<utime>\t<stime>\t<alltime>\n");
-    gzprintf(f, "client_stats\t%d\t%.9f\t%.9f\t%.9f\n", 0, cli_utime, cli_stime,
-             cli_alltime);
+    gzprintf(f, "client_stats\t%d\t%.9f\t%.9f\t%.9f\n", my_rank, cli_utime,
+             cli_stime, cli_alltime);
 
     if (f) {
         gzclose(f);
@@ -472,14 +503,16 @@ err_qtn_cleanup:
     if (samples) munmap(samples, MAX_SAMPLES * sizeof(double));
     if (qph != QTN_PROVIDER_HANDLE_NULL) quintain_provider_handle_release(qph);
     if (qcl != QTN_CLIENT_NULL) quintain_client_finalize(qcl);
+err_flock_cleanup:
+    flock_group_view_clear(&group_view);
+    if (fh != FLOCK_GROUP_HANDLE_NULL) flock_group_handle_release(fh);
+    if (fcl != FLOCK_CLIENT_NULL) flock_client_finalize(fcl);
 err_br_cleanup:
     if (bsh != NULL) bedrock_service_handle_destroy(bsh);
     if (bcl != NULL) bedrock_client_finalize(bcl);
 err_margo_cleanup:
     if (svr_addr != HG_ADDR_NULL) margo_addr_free(mid, svr_addr);
     margo_finalize(mid);
-err_flock_cleanup:
-    flock_group_view_clear(&group_view);
 err_mpi_cleanup:
     if (json_cfg) json_object_put(json_cfg);
     if (svr_config) json_object_put(svr_config);
