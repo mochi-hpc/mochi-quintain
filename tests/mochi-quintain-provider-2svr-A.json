@@ -1,0 +1,34 @@
+{
+    "margo" : {
+    },
+    "libraries" : [
+        "libquintain-bedrock.so",
+        "libflock-bedrock-module.so"
+    ],
+    "providers" : [
+        {
+            "name" : "my_quintain_provider",
+            "type" : "quintain",
+            "provider_id" : 1,
+            "dependencies": {
+                "pool" : "__primary__"
+            },
+            "config" : {}
+        },
+        {
+            "name" : "quintain_group",
+            "type" : "flock",
+            "provider_id" : 2,
+            "dependencies": {
+                "pool" : "__primary__"
+            },
+            "config": {
+                  "bootstrap": "self",
+                  "file": "./quintain.flock.json",
+                  "group": {
+                      "type": "centralized"
+                  }
+            }
+        }
+    ]
+}
