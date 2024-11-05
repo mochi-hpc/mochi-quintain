@@ -12,6 +12,7 @@ Makefile.in
 mochi-quintain-config.h.in
 mochi-quintain-config.h.in~
 configure
+configure~
 cscope.files
 aclocal.m4
 Makefile.in
