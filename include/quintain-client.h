@@ -35,9 +35,9 @@ int quintain_work(quintain_provider_handle_t provider,
                   int                        req_buffer_size,
                   int                        resp_buffer_size,
                   hg_size_t                  bulk_size,
-                  hg_bulk_op_t               bulk_op,
                   void*                      bulk_buffer,
-                  int                        flags);
+                  int                        flags,
+                  int                        op_flags);
 
 int quintain_stat(quintain_provider_handle_t provider,
                   double*                    utime_sec,

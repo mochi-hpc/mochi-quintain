@@ -209,7 +209,7 @@ static void qtn_work_ult(hg_handle_t handle)
     else
         out.resp_buffer = NULL;
 
-    if (in.bulk_size) {
+    if ((in.operation & QTN_BULK_PULL) | (in.operation & QTN_BULK_PUSH)) {
         /* we were asked to perform a bulk transfer */
         if (in.flags & QTN_WORK_USE_SERVER_POOLSET) {
             /* get buffer from poolset */

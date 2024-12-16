@@ -79,7 +79,6 @@ int main(int argc, char** argv)
     struct json_object*        json_cfg;
     int req_buffer_size, resp_buffer_size, duration_seconds, warmup_iterations,
         bulk_size;
-    hg_bulk_op_t             bulk_op;
     double                   this_ts, prev_ts, start_ts;
     double*                  samples;
     int                      sample_index = 0;
@@ -90,6 +89,8 @@ int main(int argc, char** argv)
     struct sample_statistics stats        = {0};
     void*                    bulk_buffer  = NULL;
     int                      work_flags   = 0;
+    int                      op_flags     = 0;
+    const char*              op_str       = NULL;
     struct margo_init_info   mii          = {0};
     struct json_object*      margo_config = NULL;
     struct json_object*      svr_config   = NULL;
@@ -235,22 +236,17 @@ int main(int argc, char** argv)
     if (json_object_get_boolean(
             json_object_object_get(json_cfg, "use_server_poolset")))
         work_flags |= QTN_WORK_USE_SERVER_POOLSET;
+
+    /* todo: make this an object, not a string, so we can buld up / time a
+     * sequence of operations */
+    op_str
+        = json_object_get_string(json_object_object_get(json_cfg, "operation"));
+    if (op_str && strcmp("bulk_get", op_str) == 0)
+        op_flags = QTN_BULK_PULL;
+    else if (op_str && strcmp("bulk_put", op_str) == 0)
+        op_flags = QTN_BULK_PUSH;
     bulk_size
         = json_object_get_int(json_object_object_get(json_cfg, "bulk_size"));
-    if (strcmp("pull", json_object_get_string(
-                           json_object_object_get(json_cfg, "bulk_direction"))))
-        bulk_op = HG_BULK_PULL;
-    else if (strcmp("push", json_object_get_string(json_object_object_get(
-                                json_cfg, "bulk_direction"))))
-        bulk_op = HG_BULK_PUSH;
-    else {
-        fprintf(stderr,
-                "Error: invalid bulk_direction parameter: %s (must be push or "
-                "pull).\n",
-                json_object_get_string(
-                    json_object_object_get(json_cfg, "bulk_direction")));
-        goto err_qtn_cleanup;
-    }
 
     /* allocate with mmap rather than malloc just so we can use the
      * MAP_POPULATE flag to get the paging out of the way before we start
@@ -264,11 +260,15 @@ int main(int argc, char** argv)
         goto err_qtn_cleanup;
     }
 
-    /* Allocate a bulk buffer (if bulk_size > 0) to reuse in all _work()
+    /* Allocate a bulk buffer to reuse in all _work()
      * calls.  Note that we do not expliclitly register it for RDMA here;
      * that will be handled within the _work() call as needed.
+     *
+     * we used to imply the need for bulk operations if bulk_size was nonzero,
+     * but now we explicitly request bulk operations through the 'operations'
+     * flag
      */
-    if (bulk_size > 0) {
+    if ((op_flags & QTN_BULK_PULL) | (op_flags & QTN_BULK_PUSH)) {
         bulk_buffer = malloc(bulk_size);
         if (!bulk_buffer) {
             perror("malloc");
@@ -280,7 +280,7 @@ int main(int argc, char** argv)
     /* run warm up iterations, if specified */
     for (i = 0; i < warmup_iterations; i++) {
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size, bulk_size,
-                            bulk_op, bulk_buffer, work_flags);
+                            bulk_buffer, work_flags, op_flags);
         if (ret != QTN_SUCCESS) {
             fprintf(stderr, "Error: quintain_work() failure: (%d)\n", ret);
             goto err_qtn_cleanup;
@@ -310,7 +310,7 @@ int main(int argc, char** argv)
 
     do {
         ret = quintain_work(qph, req_buffer_size, resp_buffer_size, bulk_size,
-                            bulk_op, bulk_buffer, work_flags);
+                            bulk_buffer, work_flags, op_flags);
         if (ret != QTN_SUCCESS) {
             fprintf(stderr, "Error: quintain_work() failure.\n");
             goto err_qtn_cleanup;
@@ -581,7 +581,6 @@ static int parse_json(const char* json_file, struct json_object** json_cfg)
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "req_buffer_size", 128, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "resp_buffer_size", 128, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "bulk_size", 16384, val);
-    CONFIG_HAS_OR_CREATE(*json_cfg, string, "bulk_direction", "pull", val);
     CONFIG_HAS_OR_CREATE(*json_cfg, int, "warmup_iterations", 10, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, boolean, "use_server_poolset", 1, val);
     CONFIG_HAS_OR_CREATE(*json_cfg, boolean, "trace", 1, val);
