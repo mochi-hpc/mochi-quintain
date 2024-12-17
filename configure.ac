@@ -98,6 +98,25 @@ LIBS="$ZLIB_LIBS $LIBS"
 CPPFLAGS="$ZLIB_CFLAGS $CPPFLAGS"
 CFLAGS="$ZLIB_CFLAGS $CFLAGS"
 
+AC_ARG_WITH([hpctoolkit],
+[AS_HELP_STRING([--with-hpctoolkit],
+  [enable explicit support for HPCToolkit profiling control])],
+[],
+[with_hpctoolkit=no])
+
+# if hpctoolkit support not disabled, check for header and library
+if test x$with_hpctoolkit != xno; then
+  # guess that hpctoolkit might be in the spack env.  Otherwise the user
+  # needs to set LDFLAGS appropriately at configure time
+  LIBS="-L$SPACK_ENV/.spack-env/view/lib/hpctoolkit $LIBS"
+  AC_CHECK_HEADER([hpctoolkit.h],
+     [AC_CHECK_LIB(hpctoolkit, hpctoolkit_sampling_start,
+         [AC_DEFINE(HAVE_HPCTOOLKIT, 1, [HPCToolkit support enabled])
+          LIBS="-lhpctoolkit $LIBS"],
+         [AC_MSG_ERROR(Cannot find required hpctoolkit_sampling_start() in libhpctoolkit)])],
+     [AC_MSG_ERROR(Cannot find hpctoolkit headers)])
+fi
+
 # optional mpi; this will cause the benchmark program to be built as well,
 # in addition to the provider piece
 AC_MSG_CHECKING([If MPI programs can be compiled])

@@ -18,6 +18,10 @@
 #include <margo-bulk-pool.h>
 #include <quintain-server.h>
 
+#ifdef HAVE_HPCTOOLKIT
+    #include <hpctoolkit.h>
+#endif
+
 #include "quintain-rpc.h"
 #include "quintain-macros.h"
 
@@ -172,6 +176,10 @@ int quintain_provider_deregister(quintain_provider_t provider)
     return QTN_SUCCESS;
 }
 
+#ifdef HAVE_HPCTOOLKIT
+static int hpctoolkit_started = 0;
+#endif
+
 static void qtn_work_ult(hg_handle_t handle)
 {
     margo_instance_id     mid = MARGO_INSTANCE_NULL;
@@ -185,6 +193,13 @@ static void qtn_work_ult(hg_handle_t handle)
     hg_bulk_t             bulk_handle = HG_BULK_NULL;
 
     memset(&out, 0, sizeof(out));
+
+#ifdef HAVE_HPCTOOLKIT
+    if (!hpctoolkit_started) {
+        hpctoolkit_sampling_start();
+        hpctoolkit_started = 1;
+    }
+#endif
 
     mid = margo_hg_handle_get_instance(handle);
     assert(mid);
