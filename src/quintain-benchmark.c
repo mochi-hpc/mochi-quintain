@@ -155,25 +155,28 @@ int main(int argc, char** argv)
 
     ret = flock_client_init(mid, ABT_POOL_NULL, &fcl);
     if (ret != FLOCK_SUCCESS) {
-        fprintf(stderr, "Error: flock_client_init() failure.\n");
+        fprintf(stderr, "Error: flock_client_init() failure, ret: %d.\n", ret);
         goto err_flock_cleanup;
     }
 
     ret = flock_group_handle_create(fcl, svr_addr, provider_id, true, &fh);
     if (ret != FLOCK_SUCCESS) {
-        fprintf(stderr, "Error: flock_group_handle_create() failure.\n");
+        fprintf(stderr,
+                "Error: flock_group_handle_create() failure, ret: %d.\n", ret);
         goto err_flock_cleanup;
     }
 
     ret = flock_group_update_view(fh, NULL);
     if (ret != FLOCK_SUCCESS) {
-        fprintf(stderr, "Error: flock_group_update_view() failure.\n");
+        fprintf(stderr, "Error: flock_group_update_view() failure, ret: %d.\n",
+                ret);
         goto err_flock_cleanup;
     }
 
     ret = flock_group_get_view(fh, &group_view);
     if (ret != FLOCK_SUCCESS) {
-        fprintf(stderr, "Error: flock_group_get_view() failure.\n");
+        fprintf(stderr, "Error: flock_group_get_view() failure, ret: %d.\n",
+                ret);
         goto err_flock_cleanup;
     }
 
