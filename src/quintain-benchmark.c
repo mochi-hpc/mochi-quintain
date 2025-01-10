@@ -191,8 +191,8 @@ int main(int argc, char** argv)
     }
 
     /* each benchmark process selects exactly one server to contact */
-    svr_addr_str = group_view.members.data[nranks % nproviders].address;
-    provider_id  = group_view.members.data[nranks % nproviders].provider_id;
+    svr_addr_str = group_view.members.data[my_rank % nproviders].address;
+    provider_id  = group_view.members.data[my_rank % nproviders].provider_id;
 
     /* resolve address to target server */
     margo_addr_free(mid, svr_addr);
@@ -439,6 +439,9 @@ int main(int argc, char** argv)
     stats.max    = samples[sample_index - 1];
     for (i = 0; i < sample_index; i++) stats.mean += samples[i];
     stats.mean /= (double)sample_index;
+    gzprintf(f, "# client_mapping\t<rank>\t<svr_idx>\t<svr_addr_string>\n");
+    gzprintf(f, "client_mapping\t%d\t%d\t%s\n", my_rank, my_rank % nproviders,
+             svr_addr_str);
     gzprintf(
         f,
         "# sample_stats\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>\n");
