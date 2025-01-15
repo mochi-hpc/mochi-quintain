@@ -47,6 +47,7 @@ struct sample_statistics {
     double q3;
     double max;
     double mean;
+    double ops_per_sec;
 };
 
 static int  parse_args(int                  argc,
@@ -429,6 +430,8 @@ int main(int argc, char** argv)
      * occurred (if requested), we can locally sort and generate some
      * statistics
      */
+    /* calculate ops/s before we possibly truncate sample_index */
+    stats.ops_per_sec = (double)sample_index / (double)duration_seconds;
     if (sample_index > MAX_SAMPLES) sample_index = MAX_SAMPLES;
     qsort(samples, sample_index, sizeof(double), sample_compare);
     /* there should be a lot of samples; we aren't going to bother
@@ -445,12 +448,13 @@ int main(int argc, char** argv)
     gzprintf(f, "# client_mapping\t<rank>\t<svr_idx>\t<svr_addr_string>\n");
     gzprintf(f, "client_mapping\t%d\t%d\t%s\n", my_rank, my_rank % nproviders,
              svr_addr_str);
-    gzprintf(
-        f,
-        "# sample_stats\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>\n");
-    gzprintf(f, "sample_stats\t%d\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\n",
+    gzprintf(f,
+             "# "
+             "sample_stats\t<rank>\t<min>\t<q1>\t<median>\t<q3>\t<max>\t<mean>"
+             "\t<ops/s>\n");
+    gzprintf(f, "sample_stats\t%d\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.3f\n",
              my_rank, stats.min, stats.q1, stats.median, stats.q3, stats.max,
-             stats.mean);
+             stats.mean, stats.ops_per_sec);
     if (my_rank == 0) {
         gzprintf(
             f, "# server_stats\t<server_rank>\t<utime>\t<stime>\t<alltime>\n");
